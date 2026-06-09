@@ -52,10 +52,16 @@ infra/
 ## Current Documents
 
 - [MVP Requirements](docs/prd/mvp-requirements.md)
+- [Feature Breakdown](docs/prd/feature-breakdown.md)
+- [User Stories](docs/prd/user-stories.md)
+- [Release Plan](docs/prd/release-plan.md)
 - [Information Architecture](docs/architecture/information-architecture.md)
 - [Domain Model](docs/architecture/domain-model.md)
 - [UI Style Guide](docs/design/ui-style-guide.md)
 - [GitHub Setup](docs/architecture/github-setup.md)
+- [Frontend UI Engineering Plan](docs/design/frontend-ui-engineering-plan.md)
+- [Open Design Prototype](docs/design/open-design-prototype.md)
+- [Codex Continuation Guide](docs/architecture/codex-continuation-guide.md)
 
 ## GitHub Remote
 
@@ -66,4 +72,3 @@ git remote add origin https://github.com/<owner>/ai-agent-platform.git
 git branch -M main
 git push -u origin main
 ```
-
