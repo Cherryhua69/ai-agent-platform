@@ -35,14 +35,31 @@
 - projectId
 - name
 - description
-- avatar
-- tags
+- businessScenario
+- department
 - ownerId
 - status
+- version
+- modelConfig
+- promptConfig
+- knowledgeConfig
+- toolConfig
+- securityConfig
+- releaseConfig
+- observabilityConfig
 - currentDraftVersionId
 - currentPublishedVersionId
 - createdAt
 - updatedAt
+
+配置字段建议：
+- modelConfig：modelProvider、modelName、temperature、maxTokens、timeoutMs、retryCount
+- promptConfig：systemPrompt、roleDefinition、taskBoundary、forbiddenActions、outputFormat
+- knowledgeConfig：knowledgeBaseIds、retrievalMode、topK、similarityThreshold、returnCitations、noHitStrategy
+- toolConfig：mcpToolIds、apiToolIds、databaseConnectionIds、allowCodeExecution、allowLocalFileReadWrite、toolPermissionScopes
+- securityConfig：riskConfirmationRules、fileAccessWhitelist、databaseAccessMode、apiCallPolicy、sensitiveDataPolicy、rateLimit
+- releaseConfig：publishAsApi、apiPath、authType、callerWhitelist、requestSchema、responseSchema、concurrencyLimit、logRetentionDays
+- observabilityConfig：recordFullTrace、recordModelIO、recordToolDetails、recordKnowledgeRetrieval、errorAlertEnabled
 
 ### AgentVersion
 
@@ -84,7 +101,10 @@
 - condition
 - tool
 - knowledge
+- database
 - code
+- file
+- agent
 - human_handoff
 - end
 
@@ -130,18 +150,61 @@ MCP 服务连接。
 - createdAt
 - updatedAt
 
-### KnowledgeBase
+### ApiTool
 
-知识库。
+手动注册的外部 API 工具。
 
 字段建议：
 - id
 - workspaceId
 - name
 - description
+- endpoint
+- method
+- authType
+- requestSchema
+- responseSchema
+- permissionPolicy
+- status
+- createdAt
+- updatedAt
+
+### DatabaseConnection
+
+Agent 可使用的数据库连接。
+
+字段建议：
+- id
+- workspaceId
+- name
+- databaseType
+- environment
+- endpoint
+- authType
+- ownerId
+- visibilityScope
+- accessMode
+- status
+- createdAt
+- updatedAt
+
+### KnowledgeBase
+
+知识库，是平台级独立资源，可被多个 Agent 按权限引用。
+
+字段建议：
+- id
+- workspaceId
+- name
+- description
+- businessCategory
+- ownerId
+- visibilityScope
 - embeddingModel
 - chunkStrategy
 - retrievalConfig
+- documentCount
+- indexStatus
 - status
 - createdAt
 - updatedAt
@@ -154,10 +217,68 @@ MCP 服务连接。
 - id
 - knowledgeBaseId
 - sourceType
+- fileName
+- fileType
 - title
 - uri
+- uploadedBy
+- version
 - status
+- parseStatus
+- vectorizationStatus
 - chunkCount
+- createdAt
+- updatedAt
+
+### VectorIndex
+
+知识库维护的独立向量索引。
+
+字段建议：
+- id
+- knowledgeBaseId
+- embeddingModel
+- status
+- documentCount
+- chunkCount
+- lastBuiltAt
+- supportsRebuild
+- createdAt
+- updatedAt
+
+### RetrievalLog
+
+知识库检索日志，归属于具体任务、Agent 和知识库。
+
+字段建议：
+- id
+- taskId
+- runId
+- agentId
+- knowledgeBaseId
+- documentId
+- query
+- matchedChunk
+- similarityScore
+- callerType
+- callerId
+- createdAt
+
+### Task
+
+企业员工在工作台发起的一次任务或会话任务。
+
+字段建议：
+- id
+- workspaceId
+- projectId
+- agentId
+- createdBy
+- title
+- status
+- progress
+- input
+- output
 - createdAt
 - updatedAt
 
@@ -167,9 +288,12 @@ MCP 服务连接。
 
 字段建议：
 - id
+- taskId
 - agentId
 - versionId
 - channel
+- callerType
+- callerId
 - input
 - output
 - status
@@ -190,6 +314,8 @@ MCP 服务连接。
 - stepIndex
 - nodeId
 - type
+- resourceType
+- resourceId
 - input
 - output
 - latencyMs
@@ -233,6 +359,13 @@ MCP 服务连接。
 - versionId
 - environment
 - channel
+- apiPath
+- authType
+- callerWhitelist
+- requestSchema
+- responseSchema
+- concurrencyLimit
+- logRetentionDays
 - status
 - releasedBy
 - releasedAt
@@ -256,6 +389,8 @@ MCP 服务连接。
 
 AgentStatus：
 - draft
+- enabled
+- disabled
 - testing
 - published
 - error
@@ -281,23 +416,52 @@ ReleaseStatus：
 - published
 - rolled_back
 
+KnowledgeBaseStatus：
+- enabled
+- disabled
+- archived
+
+DocumentProcessStatus：
+- pending
+- parsing
+- parsed
+- vectorizing
+- indexed
+- failed
+
+IndexStatus：
+- empty
+- building
+- ready
+- stale
+- failed
+
+DatabaseAccessMode：
+- readonly
+- writable
+
 ## 3. 关系概览
 
 ```mermaid
 erDiagram
   Workspace ||--o{ Project : owns
   Workspace ||--o{ McpServer : owns
+  Workspace ||--o{ ApiTool : owns
+  Workspace ||--o{ DatabaseConnection : owns
   Workspace ||--o{ KnowledgeBase : owns
   Project ||--o{ Agent : contains
   Agent ||--o{ AgentVersion : versions
   Agent ||--o{ Workflow : defines
+  Agent ||--o{ Task : handles
   Workflow ||--o{ WorkflowNode : contains
   McpServer ||--o{ Tool : exposes
   KnowledgeBase ||--o{ Document : contains
+  KnowledgeBase ||--o{ VectorIndex : maintains
+  KnowledgeBase ||--o{ RetrievalLog : records
+  Task ||--o{ Run : executes
   Agent ||--o{ Run : executes
   Run ||--o{ RunTrace : records
   EvaluationDataset ||--o{ EvaluationRun : produces
   AgentVersion ||--o{ EvaluationRun : evaluated_by
   Agent ||--o{ Release : publishes
 ```
-
