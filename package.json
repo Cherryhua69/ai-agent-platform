@@ -1,0 +1,13 @@
+{
+  "name": "ai-agent-platform",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @ai-agent-platform/web dev",
+    "build:web": "pnpm --filter @ai-agent-platform/web build",
+    "test:web": "pnpm --filter @ai-agent-platform/web test",
+    "lint:web": "pnpm --filter @ai-agent-platform/web lint",
+    "typecheck:web": "pnpm --filter @ai-agent-platform/web typecheck",
+    "e2e:web": "pnpm --filter @ai-agent-platform/web e2e"
+  }
+}
