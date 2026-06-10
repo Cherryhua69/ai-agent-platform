@@ -1,6 +1,10 @@
 import { PageScaffold, Panel, SimpleTable, StatusPill } from "../shared/ViewBlocks";
+import { useKnowledgeBases } from "./useKnowledgeBases";
 
 export function KnowledgePage() {
+  const knowledgeQuery = useKnowledgeBases();
+  const knowledgeBases = knowledgeQuery.data ?? [];
+
   return (
     <PageScaffold
       eyebrow="构建 / Knowledge"
@@ -11,11 +15,24 @@ export function KnowledgePage() {
         <Panel title="知识资产" meta={<StatusPill>平台级资源</StatusPill>} strong>
           <SimpleTable
             columns={["名称", "来源", "文档", "检索策略", "质量", "状态"]}
-            rows={[
-              ["售后政策库", "上传 + 飞书预留", "128", "Hybrid + Rerank", "92", <StatusPill tone="ok">ready</StatusPill>],
-              ["质保条款库", "PDF", "42", "Vector", "78", <StatusPill tone="warn">stale</StatusPill>],
-              ["工单历史库", "API", "8,420", "Keyword + Vector", "83", <StatusPill tone="ok">ready</StatusPill>]
-            ]}
+            rows={(knowledgeBases.length ? knowledgeBases : [
+              {
+                id: "kb-fallback",
+                name: "售后政策库",
+                source: "上传 + 飞书预留",
+                documentCount: 128,
+                retrievalStrategy: "Hybrid + Rerank",
+                qualityScore: 92,
+                status: "ready" as const
+              }
+            ]).map((item) => [
+              item.name,
+              item.source,
+              item.documentCount,
+              item.retrievalStrategy,
+              item.qualityScore,
+              <StatusPill key={item.id} tone={item.status === "ready" ? "ok" : "warn"}>{item.status}</StatusPill>
+            ])}
           />
         </Panel>
         <Panel title="处理流水线">
