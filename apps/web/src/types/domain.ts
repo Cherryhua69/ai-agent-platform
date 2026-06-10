@@ -57,6 +57,7 @@ export type ReleaseGate = {
   status: GateStatus;
   reasons: string[];
   checkedAt: string;
+  auditId?: string;
 };
 
 export type TraceStep = {
