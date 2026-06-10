@@ -5,7 +5,7 @@ export default defineConfig({
   webServer: {
     command: "corepack pnpm dev -- --port 5174 --strictPort",
     url: "http://127.0.0.1:5174",
-    reuseExistingServer: false
+    reuseExistingServer: !process.env.CI
   },
   use: {
     baseURL: "http://127.0.0.1:5174"
