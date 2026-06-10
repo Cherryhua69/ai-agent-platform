@@ -5,7 +5,10 @@ requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115.0",
   "uvicorn[standard]>=0.32.0",
-  "pydantic-settings>=2.6.0"
+  "pydantic-settings>=2.6.0",
+  "sqlalchemy>=2.0.36",
+  "alembic>=1.14.0",
+  "pymysql>=1.1.1"
 ]
 
 [project.optional-dependencies]
@@ -18,3 +21,6 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
