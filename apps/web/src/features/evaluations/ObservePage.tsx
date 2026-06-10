@@ -1,6 +1,11 @@
 import { MetricCard, PageScaffold, Panel, StatusPill } from "../shared/ViewBlocks";
+import { useRunTrace } from "../runs/useRunTrace";
 
 export function ObservePage() {
+  const traceQuery = useRunTrace();
+  const trace = traceQuery.data;
+  const steps = trace?.steps ?? [];
+
   return (
     <PageScaffold
       eyebrow="上线 / Evaluation & Trace"
@@ -16,10 +21,13 @@ export function ObservePage() {
       <Panel title="Trace 步骤" strong>
         <div className="trace-layout">
           <aside>
-            {["用户输入", "Hybrid Retrieval", "Rerank", "LLM Decision", "MCP Tool"].map((step, index) => (
-              <div className={index === 4 ? "trace-step bad-step" : "trace-step"} key={step}>
-                <strong>{String(index + 1).padStart(2, "0")} {step}</strong>
-                <span>{index === 4 ? "create_ticket timeout" : "已记录输入输出摘要"}</span>
+            {(steps.length ? steps : [
+              { id: "fallback-input", title: "用户输入", status: "success", latencyMs: 18 },
+              { id: "fallback-tool", title: "MCP Tool", status: "failed", latencyMs: 8400, errorMessage: "create_ticket timeout" }
+            ]).map((step, index) => (
+              <div className={step.status === "failed" ? "trace-step bad-step" : "trace-step"} key={step.id}>
+                <strong>{String(index + 1).padStart(2, "0")} {step.title}</strong>
+                <span>{step.errorMessage ?? `${step.latencyMs}ms，已记录输入输出摘要`}</span>
               </div>
             ))}
           </aside>
@@ -29,7 +37,7 @@ export function ObservePage() {
               <div className="asset-card"><strong>失败归因</strong><p>MCP 超时</p></div>
               <div className="asset-card"><strong>可复现</strong><p>Run + Dataset Case</p></div>
             </div>
-            <pre>{JSON.stringify({ runId: "run_8f23", gate: "blocked_by_tool_health", trace: ["input", "retrieval", "rerank", "llm", "mcp_tool"] }, null, 2)}</pre>
+            <pre>{JSON.stringify(trace ?? { runId: "run_8f23", gate: "blocked_by_tool_health", trace: ["input", "retrieval", "rerank", "llm", "mcp_tool"] }, null, 2)}</pre>
           </section>
         </div>
       </Panel>

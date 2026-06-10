@@ -1,6 +1,17 @@
 import { KeyValueList, PageScaffold, Panel, StatusPill } from "../shared/ViewBlocks";
+import { useWorkflows } from "./useWorkflows";
 
 export function WorkflowPage() {
+  const workflowsQuery = useWorkflows();
+  const workflow = workflowsQuery.data?.[0];
+  const nodes = workflow?.nodes ?? [
+    { id: "node-trigger", type: "trigger", name: "Webhook Trigger", status: "success" },
+    { id: "node-retrieval", type: "retrieval", name: "RAG Retrieve", status: "success" },
+    { id: "node-llm", type: "llm", name: "LLM Decision", status: "success" },
+    { id: "node-tool", type: "tool", name: "create_ticket", status: "failed" },
+    { id: "node-human", type: "human", name: "Human Review", status: "warning" }
+  ];
+
   return (
     <PageScaffold
       eyebrow="构建 / Flow Builder"
@@ -13,7 +24,11 @@ export function WorkflowPage() {
         </>
       }
     >
-      <Panel title="Agentflow 画布" strong>
+      <Panel
+        title={workflow ? `${workflow.name}（${workflow.nodes.length} 个节点）` : "Agentflow 画布"}
+        meta={<StatusPill tone={workflow?.toolHealthStatus === "degraded" ? "bad" : "info"}>{workflow?.toolHealthStatus ?? "mock"}</StatusPill>}
+        strong
+      >
         <div className="workflow-shell">
           <aside className="node-palette">
             {["Trigger", "LLM", "Knowledge Retrieval", "MCP Tool", "Human Review", "Expose"].map((node) => (
@@ -24,17 +39,11 @@ export function WorkflowPage() {
             ))}
           </aside>
           <section className="workflow-canvas" aria-label="工作流画布">
-            {[
-              ["Webhook Trigger", "订单售后事件", "ok"],
-              ["RAG Retrieve", "售后政策库 / Hybrid", "info"],
-              ["LLM Decision", "分类：自动 / 人工", "ok"],
-              ["MCP Tool", "create_ticket timeout", "bad"],
-              ["Human Review", "退款金额确认", "warn"]
-            ].map(([title, desc, tone], index) => (
-              <div className={`workflow-node node-${index + 1}`} key={title}>
-                <strong>{title}</strong>
-                <span>{desc}</span>
-                <StatusPill tone={tone as "ok" | "warn" | "bad" | "info"}>{tone}</StatusPill>
+            {nodes.map((node, index) => (
+              <div className={`workflow-node node-${index + 1}`} key={node.id}>
+                <strong>{node.name}</strong>
+                <span>{node.type}</span>
+                <StatusPill tone={node.status === "failed" ? "bad" : node.status === "warning" ? "warn" : "ok"}>{node.status}</StatusPill>
               </div>
             ))}
           </section>
@@ -45,7 +54,8 @@ export function WorkflowPage() {
                 ["知识库", "售后政策库"],
                 ["检索策略", "Hybrid + Rerank"],
                 ["Top K", "5"],
-                ["发布影响", <StatusPill tone="bad">下游工具异常</StatusPill>]
+                ["节点数量", String(nodes.length)],
+                ["发布影响", <StatusPill tone={workflow?.toolHealthStatus === "degraded" ? "bad" : "ok"}>{workflow?.toolHealthStatus === "degraded" ? "下游工具异常" : "可发布"}</StatusPill>]
               ]}
             />
           </aside>

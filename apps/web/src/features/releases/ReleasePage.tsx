@@ -1,6 +1,11 @@
 import { KeyValueList, PageScaffold, Panel, SimpleTable, StatusPill } from "../shared/ViewBlocks";
+import { useReleaseGates } from "./useReleaseGates";
 
 export function ReleasePage() {
+  const gatesQuery = useReleaseGates();
+  const gate = gatesQuery.data?.[0];
+  const reasons = gate?.reasons ?? ["工具健康异常：create_ticket degraded", "关键评测用例失败"];
+
   return (
     <PageScaffold
       eyebrow="上线 / Channels"
@@ -25,14 +30,9 @@ export function ReleasePage() {
             ]}
           />
         </Panel>
-        <Panel title="发布门禁" meta={<StatusPill tone="bad">blocked</StatusPill>}>
+        <Panel title="发布门禁" meta={<StatusPill tone={gate?.status === "blocked" ? "bad" : "ok"}>{gate?.status ?? "blocked"}</StatusPill>}>
           <KeyValueList
-            items={[
-              ["关键评测", <StatusPill tone="bad">1 失败</StatusPill>],
-              ["工具健康", <StatusPill tone="bad">create_ticket degraded</StatusPill>],
-              ["知识库索引", <StatusPill tone="ok">ready</StatusPill>],
-              ["高风险规则", <StatusPill tone="warn">退款 API 需确认</StatusPill>]
-            ]}
+            items={reasons.map((reason) => [reason, <StatusPill key={reason} tone="bad">blocked</StatusPill>])}
           />
         </Panel>
       </div>

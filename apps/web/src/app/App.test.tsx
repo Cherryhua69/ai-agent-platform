@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
+import { AppProviders } from "./providers";
 
 const viewCases = [
   ["工作台", "企业 Agent 工作台"],
@@ -19,7 +20,11 @@ const viewCases = [
 describe("App", () => {
   it("支持 10 个一级视图导航切换", async () => {
     const user = userEvent.setup();
-    render(<App />);
+    render(
+      <AppProviders>
+        <App />
+      </AppProviders>
+    );
 
     for (const [button, title] of viewCases) {
       await user.click(screen.getByRole("button", { name: new RegExp(button) }));
