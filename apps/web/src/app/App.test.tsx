@@ -28,7 +28,7 @@ describe("App", () => {
 
     for (const [button, title] of viewCases) {
       await user.click(screen.getByRole("button", { name: new RegExp(button) }));
-      expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: title })).toBeInTheDocument();
     }
   });
 });
