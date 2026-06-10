@@ -77,3 +77,15 @@ export type RunTrace = {
   costCny: number;
   steps: TraceStep[];
 };
+
+export type EvaluationRun = {
+  id: string;
+  datasetId: string;
+  agentId: string;
+  passRate: number;
+  failedCases: string[];
+  summary: {
+    costCny: number;
+    latencyMs: number;
+  };
+};
