@@ -4,9 +4,9 @@
 
 **Goal:** 交付 AI Agent Platform MVP 的可运行工程闭环，从确认版原型推进到前端骨架、mock 主流程、后端基础 API，再逐步接入知识库、工具、评测、发布和 Trace。
 
-**Architecture:** 先建立 React/Vite 前端控制台和 mock API，使产品主闭环可演示；再建立 FastAPI 模块化后端和 PostgreSQL schema，使前端从 mock 平滑切换到真实 API。所有高风险能力先做权限、门禁、审计和 Trace 口径，不在 P0 追求完整生产级执行器。
+**Architecture:** 先建立 React/Vite 前端控制台和 mock API，使产品主闭环可演示；再建立 FastAPI 模块化后端和 MySQL schema，使前端从 mock 平滑切换到真实 API。所有高风险能力先做权限、门禁、审计和 Trace 口径，不在 P0 追求完整生产级执行器。
 
-**Tech Stack:** React、TypeScript、Vite、Tailwind CSS、GSAP、React Router、TanStack Query、Zustand、React Flow、MSW、Vitest、Playwright、FastAPI、Pydantic、SQLAlchemy、Alembic、PostgreSQL、Redis。
+**Tech Stack:** React、TypeScript、Vite、Tailwind CSS、GSAP、React Router、TanStack Query、Zustand、React Flow、MSW、Vitest、Playwright、FastAPI、Pydantic、SQLAlchemy、Alembic、MySQL、Redis。
 
 ---
 
@@ -165,7 +165,7 @@ test-results/
 ## 后端
 
 - MVP 使用 FastAPI 模块化单体。
-- 数据库使用 PostgreSQL，迁移使用 Alembic。
+- 数据库使用 MySQL，迁移使用 Alembic。
 - 所有写操作必须预留审计记录。
 - 高风险操作必须预留确认和阻断机制。
 ```
@@ -1782,7 +1782,7 @@ git add apps/api
 git commit -m "feat: add p0 api routes"
 ```
 
-## Task 11: 增加数据库迁移与 PostgreSQL schema
+## Task 11: 增加数据库迁移与 MySQL schema
 
 **Files:**
 - Modify: `apps/api/pyproject.toml`
@@ -1800,7 +1800,7 @@ git commit -m "feat: add p0 api routes"
 ```toml
 "sqlalchemy>=2.0.36",
 "alembic>=1.14.0",
-"psycopg[binary]>=3.2.3"
+"pymysql>=1.1.1"
 ```
 
 - [ ] **Step 2: 创建数据库配置**
@@ -1811,7 +1811,7 @@ git commit -m "feat: add p0 api routes"
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/ai_agent_platform"
+DATABASE_URL = "mysql+pymysql://root:root@localhost:3306/ai_agent_platform?charset=utf8mb4"
 
 
 class Base(DeclarativeBase):
@@ -2055,7 +2055,7 @@ MVP 工程完成前必须满足：
 - 前端依赖安装失败：回滚当前任务提交，保留文档和原型。
 - React 19 生态兼容问题：降级 React 18，并在同一任务提交中调整依赖。
 - Playwright 在 Windows 本地不稳定：保留 E2E 规范，先以单元测试和手动截图验收，CI 再补跑。
-- PostgreSQL 本地不可用：后端 Repository 继续保留内存实现，数据库任务延后，不阻断前端主闭环。
+- MySQL 本地不可用：后端 Repository 继续保留内存实现，数据库任务延后，不阻断前端主闭环。
 - MCP 真实接入复杂：P0 使用 schema 和健康状态模拟，真实 transport 放到 P1。
 
 ## 5. 执行建议

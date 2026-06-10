@@ -21,8 +21,8 @@ The repository is currently in the product-definition phase. No application code
 - State: Zustand
 - Data fetching: TanStack Query
 - Backend: NestJS or FastAPI, to be finalized
-- Database: PostgreSQL
-- Vector storage: pgvector, Qdrant, or Milvus through an adapter interface
+- Database: MySQL
+- Vector storage: Qdrant or Milvus through an adapter interface
 - Deployment baseline: Docker Compose
 
 ## Proposed Repository Structure

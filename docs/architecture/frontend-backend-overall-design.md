@@ -25,7 +25,7 @@ flowchart LR
   API --> Eval["Evaluation 服务"]
   API --> Release["Release 服务"]
   API --> Trace["Trace/Audit 服务"]
-  Agent --> DB[("PostgreSQL")]
+  Agent --> DB[("MySQL")]
   Workflow --> DB
   Knowledge --> DB
   Tool --> DB
@@ -239,8 +239,8 @@ P0 动效范围：
 - Pydantic：请求响应模型和领域 DTO 校验。
 - SQLAlchemy 2.x 或 SQLModel：关系数据建模。
 - Alembic：数据库迁移。
-- PostgreSQL：主业务数据库。
-- pgvector 或独立向量库：MVP 优先 pgvector，后续按规模切换 Milvus/Qdrant。
+- MySQL：主业务数据库。
+- 独立向量库：通过适配器对接 Qdrant 或 Milvus；MVP 可先使用 mock/内存索引，不把向量能力绑定到 MySQL。
 - Redis：任务状态、短期缓存、限流和执行队列。
 - Celery/RQ/Arq：知识库处理、评测运行、异步工作流任务。
 - OpenTelemetry：Trace 采集预留。
@@ -547,7 +547,7 @@ P0 角色：
 范围：
 
 - 初始化 `apps/api`。
-- 配置 PostgreSQL、迁移、OpenAPI。
+- 配置 MySQL、迁移、OpenAPI。
 - 实现 Workspace、Project、Agent、Workflow、Run、Trace 的基础 CRUD。
 - 接入基础 RBAC 和审计日志。
 
