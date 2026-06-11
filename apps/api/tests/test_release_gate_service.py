@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from datetime import datetime, timezone
 
 from app.core.database import Base
 from app.modules.evaluation.models import EvaluationCaseModel, EvaluationDatasetModel, EvaluationRunModel
@@ -59,3 +60,31 @@ def test_release_gate_service_aggregates_real_resource_statuses():
     assert "关键评测用例失败：refund-ticket-create" in gate.reasons
     assert f"知识库索引状态未全部 ready：{knowledge_base.id} processing" in gate.reasons
     assert "高风险权限：refund_request 需要人工确认" in gate.reasons
+
+
+def test_release_gate_checked_at_uses_current_utc_time():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            ToolModel.__table__,
+            McpServerModel.__table__,
+            KnowledgeBaseModel.__table__,
+            KnowledgeDocumentModel.__table__,
+            EvaluationDatasetModel.__table__,
+            EvaluationCaseModel.__table__,
+            EvaluationRunModel.__table__,
+        ],
+    )
+    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    before = datetime.now(timezone.utc)
+    gate = ReleaseGateService(
+        tools=ToolRepository(session_factory=session_factory),
+        knowledge=KnowledgeRepository(session_factory=session_factory),
+        evaluations=EvaluationRepository(session_factory=session_factory),
+    ).check("agent-after-sale")
+    after = datetime.now(timezone.utc)
+
+    checked_at = datetime.fromisoformat(gate.checked_at.replace("Z", "+00:00"))
+    assert before <= checked_at <= after

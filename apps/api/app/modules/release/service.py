@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.modules.evaluation.repository import EvaluationRepository
@@ -30,7 +31,7 @@ class ReleaseGateService:
             agentId=agent_id,
             status="blocked" if reasons else "passed",
             reasons=reasons,
-            checkedAt="2026-06-10T09:30:00.000Z",
+            checkedAt=self._utc_now_iso(),
             auditId=f"audit_{uuid4().hex[:8]}",
         )
 
@@ -54,3 +55,6 @@ class ReleaseGateService:
 
     def _dedupe_reasons(self, reasons: list[str]) -> list[str]:
         return list(dict.fromkeys(reasons))
+
+    def _utc_now_iso(self) -> str:
+        return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
