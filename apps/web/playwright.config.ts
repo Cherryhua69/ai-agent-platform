@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   webServer: {
-    command: "corepack pnpm dev -- --port 5174 --strictPort",
+    command: "corepack pnpm dev --port 5174 --strictPort",
     url: "http://127.0.0.1:5174",
     reuseExistingServer: false
   },

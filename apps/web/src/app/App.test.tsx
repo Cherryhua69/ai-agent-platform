@@ -6,7 +6,6 @@ import { AppProviders } from "./providers";
 
 const viewCases = [
   ["工作台", "企业 Agent 工作台"],
-  ["竞品策略", "竞品能力对标"],
   ["Agent Studio", "Agent Studio"],
   ["工作流", "工作流编排"],
   ["知识库", "知识库与 RAG Pipeline"],
@@ -35,7 +34,19 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "查看阻断" })).not.toBeInTheDocument();
   });
 
-  it("支持 10 个一级视图导航切换", async () => {
+  it("不再显示竞品策略一级入口", async () => {
+    render(
+      <AppProviders>
+        <App />
+      </AppProviders>
+    );
+
+    expect(await screen.findByRole("heading", { name: "企业 Agent 工作台" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /竞品策略/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "竞品能力对标" })).not.toBeInTheDocument();
+  });
+
+  it("支持 9 个一级视图导航切换", async () => {
     const user = userEvent.setup();
     render(
       <AppProviders>

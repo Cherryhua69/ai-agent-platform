@@ -1,7 +1,6 @@
 import {
   Boxes,
   BrainCircuit,
-  ChartNoAxesCombined,
   Gauge,
   GitBranch,
   Landmark,
@@ -13,7 +12,6 @@ import {
 
 export type ViewId =
   | "dashboard"
-  | "strategy"
   | "agents"
   | "workflow"
   | "knowledge"
@@ -32,7 +30,6 @@ type NavItem = {
 
 export const navItems: NavItem[] = [
   { id: "dashboard", label: "工作台", group: "总览", icon: Gauge },
-  { id: "strategy", label: "竞品策略", group: "总览", icon: ChartNoAxesCombined },
   { id: "agents", label: "Agent Studio", group: "构建", icon: BrainCircuit },
   { id: "workflow", label: "工作流", group: "构建", icon: GitBranch },
   { id: "knowledge", label: "知识库", group: "构建", icon: Library },

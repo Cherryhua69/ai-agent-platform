@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
 
-test("10 个一级视图可切换", async ({ page }) => {
+test("9 个一级视图可切换", async ({ page }) => {
   await page.goto("/");
+
+  await expect(page.getByRole("button", { name: /竞品策略/ })).toHaveCount(0);
 
   const cases = [
     ["工作台", "企业 Agent 工作台"],
-    ["竞品策略", "竞品能力对标"],
     ["Agent Studio", "Agent Studio"],
     ["工作流", "工作流编排"],
     ["知识库", "知识库与 RAG Pipeline"],
