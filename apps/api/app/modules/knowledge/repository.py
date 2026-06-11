@@ -15,6 +15,15 @@ class KnowledgeRepository:
     def __init__(self) -> None:
         self._knowledge_bases: dict[str, KnowledgeBaseRead] = {}
         self._documents: dict[str, list[KnowledgeDocumentRead]] = {}
+        self._seed_knowledge_base = KnowledgeBaseRead(
+            id="kb-after-sale",
+            name="售后政策库",
+            source="上传 + 飞书预留",
+            documentCount=128,
+            retrievalStrategy="Hybrid + Rerank",
+            qualityScore=92,
+            status="ready",
+        )
 
     def create_knowledge_base(self, payload: KnowledgeBaseCreate) -> KnowledgeBaseRead:
         knowledge_base_id = f"kb_{uuid4().hex[:8]}"
@@ -32,19 +41,7 @@ class KnowledgeRepository:
         return knowledge_base
 
     def list_knowledge_bases(self) -> list[KnowledgeBaseRead]:
-        if self._knowledge_bases:
-            return list(self._knowledge_bases.values())
-        return [
-            KnowledgeBaseRead(
-                id="kb-after-sale",
-                name="售后政策库",
-                source="上传 + 飞书预留",
-                documentCount=128,
-                retrievalStrategy="Hybrid + Rerank",
-                qualityScore=92,
-                status="ready",
-            )
-        ]
+        return [self._seed_knowledge_base, *self._knowledge_bases.values()]
 
     def add_document(self, knowledge_base_id: str, payload: KnowledgeDocumentCreate) -> KnowledgeDocumentRead:
         document = KnowledgeDocumentRead(
