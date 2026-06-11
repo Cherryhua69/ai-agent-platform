@@ -1,20 +1,20 @@
 import { expect, test } from "@playwright/test";
 
-test("9 个一级视图可切换", async ({ page }) => {
+test("8 个主视图可切换", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("button", { name: /竞品策略/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /评测观察/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /治理/ })).toHaveCount(0);
 
   const cases = [
-    ["工作台", "企业 Agent 工作台"],
+    ["总览", "总览"],
     ["智能体", "智能体"],
-    ["工作流", "工作流编排"],
-    ["知识库", "知识库与 RAG Pipeline"],
-    ["工具与 MCP", "工具与 MCP 生态"],
-    ["评测与观测", "评测与观测"],
-    ["发布渠道", "发布渠道"],
-    ["模板市场", "模板市场"],
-    ["治理设置", "治理设置"]
+    ["工作流", "工作流"],
+    ["知识库", "知识库"],
+    ["工具", "工具"],
+    ["运行记录", "运行记录"],
+    ["发布", "发布"],
+    ["模板", "模板"]
   ];
 
   for (const [button, title] of cases) {

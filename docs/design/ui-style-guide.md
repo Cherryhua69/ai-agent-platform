@@ -1,140 +1,73 @@
-# UI 设计风格指南
+# UI Style Guide
 
-## 1. 设计关键词
+## Direction
 
-- 成熟
-- 克制
-- 专业
-- 高信息密度
-- 可观测
-- 可治理
-- 偏企业 SaaS 控制台
+The MVP UI is a soft, light, data-console interface. It should feel closer to a calm product dashboard than a traditional dense admin system.
 
-本产品不是营销站点，第一屏应直接进入可工作的产品界面。
+- Use a narrow icon sidebar.
+- Do not use a top toolbar.
+- Keep the first screen directly usable.
+- Prefer soft panels, pastel metric cards, rounded tables, and concise status language.
+- Avoid marketing hero sections, old prototype explanations, competitor strategy blocks, and decorative badge piles.
 
-## 2. 布局原则
+## Navigation
 
-- 使用左侧主导航 + 顶部工具栏 + 主工作区的控制台布局。
-- 工作台、列表、详情、画布、属性面板应保持稳定结构。
-- 表格优先于卡片瀑布流，用于承载智能体、工具、日志和评测数据。
-- 工作流编排器使用画布 + 节点库 + 属性面板 + 调试面板。
-- 页面区块可以使用面板，但避免卡片套卡片。
-- 面板圆角控制在 4px 到 8px。
+Primary navigation contains eight entries:
 
-## 3. 颜色
+1. 总览
+2. 智能体
+3. 工作流
+4. 知识库
+5. 工具
+6. 运行记录
+7. 发布
+8. 模板
 
-基础色：
-- 页面背景：`#F6F7F9`
-- 主面板：`#FFFFFF`
-- 主文本：`#172033`
-- 次级文本：`#687386`
-- 边框：`#D9DEE7`
-- 弱边框：`#E8EBF0`
+Removed from the primary navigation:
 
-品牌与状态：
-- 主色蓝：`#1668DC`
-- 主色浅底：`#E8F1FF`
-- 成功绿：`#16845B`
-- 成功浅底：`#E8F7EF`
-- 警告琥珀：`#A15C07`
-- 警告浅底：`#FFF4DD`
-- 错误红：`#C9372C`
-- 错误浅底：`#FFF0EE`
-- 深色侧栏：`#131A26`
-- 深色侧栏选中：`#1B2535`
+- 评测观察
+- 治理
 
-限制：
-- 避免大面积紫蓝渐变。
-- 避免大面积深蓝/黑色压住主工作区。
-- 避免装饰性渐变背景。
-- 状态颜色只服务状态表达，不做装饰堆叠。
+## Visual Tokens
 
-## 4. 字体
+- Page background: muted blue gray
+- Shell: translucent mist blue / white
+- Panels: translucent white with soft inset highlight
+- Metric cards: low-saturation blue, pink, mint
+- Text: dark plum / charcoal
+- Muted text: gray violet
+- Radius: 18px to 34px
+- Shadows: soft, broad, low opacity
 
-字体栈：
+## Layout
 
-```css
-font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
-```
+- Sidebar width is compact and icon-led.
+- Main shell uses one rounded container.
+- Pages use a single header with title, short description, and optional actions.
+- Content should favor one or two strong regions over many small cards.
+- Tables are preferred for operational records.
+- Cards are reserved for metrics, templates, or compact summaries.
 
-字号建议：
-- 页面标题：22px 到 26px
-- 区块标题：14px 到 16px
-- 表格正文：13px
-- 辅助说明：12px 到 13px
-- 控件文字：13px
+## Components
 
-排版原则：
-- letter-spacing 使用 0。
-- 控制台内不使用过大的展示字体。
-- 表格、标签、按钮、属性面板需要显式字号，不依赖浏览器默认样式。
+- Buttons use rounded pill styling.
+- Status pills include text and a dot; color is never the only signal.
+- Metric cards include a large number and a compact mini-bar visualization.
+- Workflow uses a three-zone editor: node palette, canvas, inspector.
+- Trace uses a left step list and right detail area.
 
-## 5. 组件风格
+## Content Rules
 
-按钮：
-- 主按钮使用蓝底白字。
-- 次按钮使用白底、灰边框。
-- 高风险按钮使用红色，但只在确认操作中出现。
+- Use clear Chinese product copy.
+- Keep dashboard text short.
+- Do not expose old Open Design prototype language.
+- Do not add competitor comparison content to the main UI.
+- Use English only for technical identifiers such as `create_ticket`, `Hybrid + Rerank`, and `Run ID`.
 
-标签：
-- 状态标签使用浅底深字。
-- 常见状态：已发布、草稿、异常、运行中、已阻断、通过、未通过。
+## Accessibility
 
-表格：
-- 表头浅灰文字。
-- 行高 44px 到 52px。
-- 选中行使用浅蓝背景和左侧强调线。
-- 支持筛选、排序、批量操作。
-
-画布节点：
-- 节点圆角 8px。
-- 选中节点使用蓝色描边。
-- 异常节点使用红色描边和错误提示。
-- 节点内容保持短句，不塞长段说明。
-
-属性面板：
-- 使用右侧固定面板。
-- 字段分组清晰。
-- 支持只读态、编辑态、错误态。
-
-图标：
-- 优先使用 lucide-react。
-- 线性图标，统一 stroke。
-- 图标按钮必须有 tooltip。
-
-## 6. 关键页面视觉方向
-
-### 工作台总览
-
-信息密度中高，展示指标、异常、待办和快捷入口。避免营销式 hero。
-
-### 智能体列表
-
-以表格为主，突出状态、模型、调用量、成功率、版本、负责人、最近更新时间。
-
-### 智能体详情
-
-采用详情头部 + 资源绑定 + 版本 + 运行指标 + 发布检查的结构。
-
-### 工作流编排器
-
-核心是可操作画布。左侧节点库，中间画布，右侧属性面板，底部调试输出。
-
-### MCP 工具管理
-
-以连接状态、工具 schema、权限、调用监控和错误诊断为核心。
-
-### 运行 Trace
-
-采用时间线或分步结构，清楚展示每一步输入、输出、耗时、成本、错误。
-
-## 7. 原型基准
-
-当前 Open Design 原型项目：
-
-- Project: `ai-agent-management-platform`
-- Entry: `index.html`
-- Preview: `http://127.0.0.1:12260/api/projects/ai-agent-management-platform/raw/index.html`
-
-后续 React 实现应以该原型的信息架构、布局密度和视觉语言为第一版参考。
-
+- Icon-only navigation must have accessible names and titles.
+- Focus outlines must remain visible.
+- Body text should stay readable on light translucent panels.
+- Reduced motion must be respected.
+- Mobile layout must avoid page-level horizontal overflow.

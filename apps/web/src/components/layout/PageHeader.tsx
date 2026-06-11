@@ -12,9 +12,7 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
         <h1>{title}</h1>
         <span>{description}</span>
       </div>
-      <div className="page-actions">
-        {actions ?? <button type="button">创建 Agent</button>}
-      </div>
+      {actions ? <div className="page-actions">{actions}</div> : null}
     </div>
   );
 }

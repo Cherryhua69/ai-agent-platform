@@ -1,20 +1,23 @@
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { useRef, useState } from "react";
-import { KeyValueList, PageScaffold, Panel, StatusPill } from "../shared/ViewBlocks";
+import { KeyValueList, PageScaffold, Panel, SimpleTable, StatusPill } from "../shared/ViewBlocks";
+import { useAgents } from "./useAgents";
 import { useCreateAgent } from "./useCreateAgent";
 import { useSimulateAgentRun } from "./useSimulateAgentRun";
 
 gsap.registerPlugin(useGSAP);
 
-const steps = ["基础信息", "模型与 Prompt", "知识与变量", "工具与 MCP", "评测集", "发布策略"];
+const steps = ["基础信息", "模型与 Prompt", "知识库", "工具权限", "发布策略"];
 
 export function AgentStudioPage() {
+  const agentsQuery = useAgents();
   const createAgent = useCreateAgent();
   const simulateAgentRun = useSimulateAgentRun();
   const runSummaryRef = useRef<HTMLParagraphElement | null>(null);
   const [createdWorkflowId, setCreatedWorkflowId] = useState<string | null>(null);
 
+  const agents = agentsQuery.data ?? [];
   const createdAgent = createAgent.data;
   const latestRun = simulateAgentRun.data;
   const failedStep = latestRun?.steps.find((step) => step.status === "failed");
@@ -48,16 +51,12 @@ export function AgentStudioPage() {
 
   return (
     <PageScaffold
-      eyebrow="构建 / 智能体"
       title="智能体"
-      description="覆盖 Agent 创建向导、模型与 Prompt、知识与变量、工具与 MCP、评测集和发布策略。"
+      description="创建、检查和试运行智能体。页面只保留 MVP 所需的资产列表、创建向导和最新运行反馈。"
       actions={
         <>
-          <button className="btn" type="button">
-            从模板创建
-          </button>
           <button className="btn" disabled={simulateAgentRun.isPending} onClick={handleSimulateRun} type="button">
-            {simulateAgentRun.isPending ? "运行中..." : "试运行"}
+            {simulateAgentRun.isPending ? "试运行中..." : "试运行"}
           </button>
           <button className="btn primary" disabled={createAgent.isPending} onClick={handleCreateDraft} type="button">
             {createAgent.isPending ? "创建中..." : "创建草稿 Agent"}
@@ -66,7 +65,7 @@ export function AgentStudioPage() {
       }
     >
       <div className="grid-two">
-        <Panel title="创建向导" strong>
+        <Panel title="创建流程" strong>
           <div className="wizard-list">
             {steps.map((step, index) => (
               <div className={index === 0 ? "wizard-step active" : "wizard-step"} key={step}>
@@ -76,7 +75,7 @@ export function AgentStudioPage() {
             ))}
           </div>
         </Panel>
-        <Panel title="当前草稿资产">
+        <Panel title="当前草稿">
           <KeyValueList
             items={[
               ["Agent", createdAgent?.name ?? "售后政策助手"],
@@ -107,6 +106,20 @@ export function AgentStudioPage() {
           {createAgent.isError ? <p className="inline-error">创建失败，请检查 API 服务。</p> : null}
         </Panel>
       </div>
+      <Panel title="智能体资产">
+        <SimpleTable
+          columns={["名称", "场景", "模型", "负责人", "状态"]}
+          rows={(agents.length ? agents : [createdAgent].filter(Boolean)).map((agent) => [
+            agent?.name,
+            agent?.scenario,
+            agent?.modelPolicy,
+            agent?.owner,
+            <StatusPill key={agent?.id} tone={agent?.status === "blocked" ? "bad" : agent?.status === "ready" ? "ok" : "info"}>
+              {agent?.status}
+            </StatusPill>
+          ])}
+        />
+      </Panel>
     </PageScaffold>
   );
 }

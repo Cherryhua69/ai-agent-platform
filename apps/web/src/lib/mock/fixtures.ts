@@ -46,7 +46,7 @@ export const knowledgeBases: KnowledgeBase[] = [
   {
     id: "kb-after-sale",
     name: "售后政策库",
-    source: "上传 + 飞书预留",
+    source: "上传文档 + 飞书同步",
     documentCount: 128,
     retrievalStrategy: "Hybrid + Rerank",
     qualityScore: 92,
@@ -98,7 +98,7 @@ export const releaseGates: ReleaseGate[] = [
     id: "gate-after-sale",
     agentId: "agent-after-sale",
     status: "blocked",
-    reasons: ["工具健康异常：create_ticket degraded", "关键评测用例失败：refund-ticket-create", "退款 API 属于高风险写操作，需要人工确认"],
+    reasons: ["工具健康异常：create_ticket degraded", "关键用例失败：refund-ticket-create", "退款 API 属于高风险写操作，需要人工确认"],
     checkedAt: "2026-06-10T09:30:00.000Z"
   }
 ];
@@ -139,7 +139,7 @@ export const runTrace: RunTrace = {
       title: "LLM Decision",
       status: "success",
       latencyMs: 1100,
-      outputSummary: "分类为需人工复核"
+      outputSummary: "分类为需要人工复核"
     },
     {
       id: "step-tool",

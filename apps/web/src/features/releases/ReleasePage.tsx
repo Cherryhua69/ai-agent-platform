@@ -8,13 +8,16 @@ export function ReleasePage() {
 
   return (
     <PageScaffold
-      eyebrow="上线 / Channels"
-      title="发布渠道"
-      description="快速暴露 API、Web Chat、Embedded Chatbot、MCP Server 和企业 IM，同时加入门禁与回滚治理。"
+      title="发布"
+      description="只保留发布渠道、门禁状态和阻断原因，帮助判断能不能上线。"
       actions={
         <>
-          <button className="btn" type="button">发布检查</button>
-          <button className="btn primary" type="button">发布测试环境</button>
+          <button className="btn" type="button">
+            发布检查
+          </button>
+          <button className="btn primary" type="button">
+            发布测试环境
+          </button>
         </>
       }
     >
@@ -23,10 +26,10 @@ export function ReleasePage() {
           <SimpleTable
             columns={["渠道", "路径 / 入口", "认证", "状态"]}
             rows={[
-              ["API", "/api/agents/after-sale/run", "API Key", <StatusPill tone="warn">待发布</StatusPill>],
-              ["Web Chat", "/chat/after-sale", "Workspace", <StatusPill tone="ok">published</StatusPill>],
-              ["Embedded Chatbot", "script snippet", "Domain allowlist", <StatusPill>ready</StatusPill>],
-              ["MCP Server", "after-sale-flow as tools", "OAuth 预留", <StatusPill>draft</StatusPill>]
+              ["API", "/api/agents/after-sale/run", "API Key", <StatusPill key="api" tone="warn">待发布</StatusPill>],
+              ["Web Chat", "/chat/after-sale", "Workspace", <StatusPill key="web" tone="ok">published</StatusPill>],
+              ["Embedded Chatbot", "script snippet", "Domain allowlist", <StatusPill key="embed">ready</StatusPill>],
+              ["MCP Server", "after-sale-flow as tools", "OAuth 预留", <StatusPill key="mcp">draft</StatusPill>]
             ]}
           />
         </Panel>

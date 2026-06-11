@@ -1,34 +1,16 @@
 import { PageHeader } from "../../components/layout/PageHeader";
 
 type PageScaffoldProps = {
-  eyebrow: string;
   title: string;
   description: string;
-  actions?: React.ReactNode | false;
+  actions?: React.ReactNode;
   children: React.ReactNode;
 };
 
-export function PageScaffold({ eyebrow, title, description, actions, children }: PageScaffoldProps) {
-  const headerActions =
-    actions === false ? (
-      <></>
-    ) : (
-      actions ?? (
-        <>
-          <button className="btn" type="button">
-            导入资产
-          </button>
-          <button className="btn primary" type="button">
-            创建 Agent
-          </button>
-        </>
-      )
-    );
-
+export function PageScaffold({ title, description, actions, children }: PageScaffoldProps) {
   return (
     <article className="view-page">
-      <PageHeader title={title} description={description} actions={headerActions} />
-      <p className="page-eyebrow">{eyebrow}</p>
+      <PageHeader title={title} description={description} actions={actions} />
       <div className="view-stack">{children}</div>
     </article>
   );
@@ -38,15 +20,21 @@ type MetricCardProps = {
   label: string;
   value: string;
   detail: string;
-  tone?: "ok" | "warn" | "bad";
+  tone?: "blue" | "pink" | "mint";
+  bars?: number[];
 };
 
-export function MetricCard({ label, value, detail, tone = "ok" }: MetricCardProps) {
+export function MetricCard({ label, value, detail, tone = "blue", bars = [42, 68, 52, 84, 72] }: MetricCardProps) {
   return (
-    <section className="panel metric-card reveal-item">
+    <section className={`panel metric-card reveal-item ${tone}`}>
       <span>{label}</span>
       <strong>{value}</strong>
-      <p className={tone}>{detail}</p>
+      <p>{detail}</p>
+      <div className="mini-bars" aria-hidden="true">
+        {bars.map((height, index) => (
+          <i key={`${height}-${index}`} style={{ height: `${height}%` }} />
+        ))}
+      </div>
     </section>
   );
 }

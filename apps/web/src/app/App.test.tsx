@@ -5,15 +5,14 @@ import { App } from "./App";
 import { AppProviders } from "./providers";
 
 const viewCases = [
-  ["工作台", "企业 Agent 工作台"],
+  ["总览", "总览"],
   ["智能体", "智能体"],
-  ["工作流", "工作流编排"],
-  ["知识库", "知识库与 RAG Pipeline"],
-  ["工具与 MCP", "工具与 MCP 生态"],
-  ["评测与观测", "评测与观测"],
-  ["发布渠道", "发布渠道"],
-  ["模板市场", "模板市场"],
-  ["治理设置", "治理设置"]
+  ["工作流", "工作流"],
+  ["知识库", "知识库"],
+  ["工具", "工具"],
+  ["运行记录", "运行记录"],
+  ["发布", "发布"],
+  ["模板", "模板"]
 ];
 
 describe("App", () => {
@@ -21,32 +20,33 @@ describe("App", () => {
     cleanup();
   });
 
-  it("工作台不显示暂未接入闭环的操作按钮", async () => {
+  it("总览保持轻量，不显示旧原型的全局操作和顶部栏", async () => {
     render(
       <AppProviders>
         <App />
       </AppProviders>
     );
 
-    expect(await screen.findByRole("heading", { name: "企业 Agent 工作台" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "总览" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "导入资产" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "创建 Agent" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "查看阻断" })).not.toBeInTheDocument();
+    expect(screen.queryByText("测试环境")).not.toBeInTheDocument();
   });
 
-  it("不再显示竞品策略一级入口", async () => {
+  it("不再显示评测观察、治理和竞品策略入口", async () => {
     render(
       <AppProviders>
         <App />
       </AppProviders>
     );
 
-    expect(await screen.findByRole("heading", { name: "企业 Agent 工作台" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "总览" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /评测观察/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /治理/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /竞品策略/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "竞品能力对标" })).not.toBeInTheDocument();
   });
 
-  it("支持 9 个一级视图导航切换", async () => {
+  it("支持 8 个主视图导航切换", async () => {
     const user = userEvent.setup();
     render(
       <AppProviders>

@@ -3,11 +3,10 @@ import { AppShell } from "../components/layout/AppShell";
 import type { ViewId } from "../components/layout/SidebarNav";
 import { AgentStudioPage } from "../features/agents/AgentStudioPage";
 import { DashboardPage } from "../features/dashboard/DashboardPage";
-import { ObservePage } from "../features/evaluations/ObservePage";
-import { GovernancePage } from "../features/governance/GovernancePage";
 import { KnowledgePage } from "../features/knowledge/KnowledgePage";
 import { MarketplacePage } from "../features/marketplace/MarketplacePage";
 import { ReleasePage } from "../features/releases/ReleasePage";
+import { RunsPage } from "../features/runs/RunsPage";
 import { ToolsPage } from "../features/tools/ToolsPage";
 import { WorkflowPage } from "../features/workflows/WorkflowPage";
 import { useViewTransition } from "../lib/motion/useViewTransition";
@@ -18,10 +17,9 @@ const views: Record<ViewId, React.ReactNode> = {
   workflow: <WorkflowPage />,
   knowledge: <KnowledgePage />,
   tools: <ToolsPage />,
-  observe: <ObservePage />,
+  runs: <RunsPage />,
   release: <ReleasePage />,
-  market: <MarketplacePage />,
-  governance: <GovernancePage />
+  market: <MarketplacePage />
 };
 
 export function App() {

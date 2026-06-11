@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ObservePage } from "./evaluations/ObservePage";
 import { KnowledgePage } from "./knowledge/KnowledgePage";
 import { ReleasePage } from "./releases/ReleasePage";
+import { RunsPage } from "./runs/RunsPage";
 import { ToolsPage } from "./tools/ToolsPage";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -47,7 +47,7 @@ describe("P0 真实 API 页面", () => {
         {
           id: "kb-after-sale",
           name: "售后政策库",
-          source: "上传 + 飞书预留",
+          source: "上传文档 + 飞书同步",
           documentCount: 128,
           retrievalStrategy: "Hybrid + Rerank",
           qualityScore: 92,
@@ -83,16 +83,8 @@ describe("P0 真实 API 页面", () => {
     expect(screen.getByText("10 分钟前")).toBeInTheDocument();
   });
 
-  it("评测观测页面展示真实评测和 Trace 数据", async () => {
+  it("运行记录页面展示真实 Trace 数据", async () => {
     stubFetchByPath({
-      "/api/evaluation-datasets/latest-run": {
-        id: "eval_run_demo",
-        datasetId: "eval_ds_after_sale",
-        agentId: "agent-after-sale",
-        passRate: 0.946,
-        failedCases: ["refund-ticket-create"],
-        summary: { costCny: 0.42, latencyMs: 1900 }
-      },
       "/api/runs/run_8f23/trace": {
         id: "run_8f23",
         agentId: "agent-after-sale",
@@ -111,10 +103,10 @@ describe("P0 真实 API 页面", () => {
       }
     });
 
-    render(<ObservePage />, { wrapper });
+    render(<RunsPage />, { wrapper });
 
-    await waitFor(() => expect(screen.getByText("94.6%")).toBeInTheDocument());
     await waitFor(() => expect(screen.getAllByText(/检查工具健康状态/).length).toBeGreaterThanOrEqual(1));
+    expect(screen.getAllByText("create_ticket degraded").length).toBeGreaterThanOrEqual(1);
   });
 
   it("发布页面展示真实发布门禁原因", async () => {

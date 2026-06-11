@@ -14,27 +14,30 @@ export function WorkflowPage() {
 
   return (
     <PageScaffold
-      eyebrow="构建 / Flow Builder"
-      title="工作流编排"
-      description="支持 Agentflow、Chatflow、RAG Pipeline、触发器和 Human in the Loop，并可暴露为 API 或 MCP Server。"
+      title="工作流"
+      description="保留节点库、画布和属性面板三件核心工具，去掉原型式说明，让编辑器更像真实生产界面。"
       actions={
         <>
-          <button className="btn" type="button">保存 Flow</button>
-          <button className="btn primary" type="button">运行调试</button>
+          <button className="btn" type="button">
+            保存
+          </button>
+          <button className="btn primary" type="button">
+            运行调试
+          </button>
         </>
       }
     >
       <Panel
-        title={workflow ? `${workflow.name}（${workflow.nodes.length} 个节点）` : "Agentflow 画布"}
+        title={workflow ? `${workflow.name} · ${workflow.nodes.length} 个节点` : "Agentflow 画布"}
         meta={<StatusPill tone={workflow?.toolHealthStatus === "degraded" ? "bad" : "info"}>{workflow?.toolHealthStatus ?? "mock"}</StatusPill>}
         strong
       >
         <div className="workflow-shell">
           <aside className="node-palette">
-            {["Trigger", "LLM", "Knowledge Retrieval", "MCP Tool", "Human Review", "Expose"].map((node) => (
+            {["Trigger", "LLM", "Knowledge", "MCP Tool", "Human Review"].map((node) => (
               <div className="node-item" key={node}>
                 <strong>{node}</strong>
-                <span>可拖入编排画布</span>
+                <span>拖入画布创建节点</span>
               </div>
             ))}
           </aside>
@@ -50,12 +53,17 @@ export function WorkflowPage() {
           <aside className="inspector-panel">
             <KeyValueList
               items={[
-                ["节点", "RAG Retrieve"],
+                ["选中节点", "RAG Retrieve"],
                 ["知识库", "售后政策库"],
                 ["检索策略", "Hybrid + Rerank"],
                 ["Top K", "5"],
                 ["节点数量", String(nodes.length)],
-                ["发布影响", <StatusPill tone={workflow?.toolHealthStatus === "degraded" ? "bad" : "ok"}>{workflow?.toolHealthStatus === "degraded" ? "下游工具异常" : "可发布"}</StatusPill>]
+                [
+                  "发布影响",
+                  <StatusPill key="publish-impact" tone={workflow?.toolHealthStatus === "degraded" ? "bad" : "ok"}>
+                    {workflow?.toolHealthStatus === "degraded" ? "下游工具异常" : "可发布"}
+                  </StatusPill>
+                ]
               ]}
             />
           </aside>
