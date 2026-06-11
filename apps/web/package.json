@@ -9,7 +9,8 @@
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
     "test": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:real-api": "playwright test --config playwright.real-api.config.ts"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
