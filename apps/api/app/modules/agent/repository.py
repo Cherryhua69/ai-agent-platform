@@ -13,7 +13,12 @@ class AgentRepository:
             id=agent_id,
             name=payload.name,
             scenario=payload.scenario,
+            owner="陈晓",
             status="draft",
+            modelPolicy="gpt-4.1 + fallback",
+            workflowId=f"flow_{agent_id}",
+            knowledgeBaseIds=["kb-after-sale", "kb-warranty"],
+            toolIds=["tool-ticket", "tool-order"],
         )
         self._agents[agent_id] = agent
         return agent

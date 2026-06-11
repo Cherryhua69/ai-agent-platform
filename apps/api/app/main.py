@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.modules.agent.router import router as agent_router
 from app.modules.evaluation.router import router as evaluation_router
@@ -8,6 +9,23 @@ from app.modules.tool.router import router as tool_router
 from app.modules.trace.router import router as trace_router
 
 app = FastAPI(title="AI Agent Platform API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
+        "http://127.0.0.1:5176",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:5176",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(agent_router)
 app.include_router(evaluation_router)

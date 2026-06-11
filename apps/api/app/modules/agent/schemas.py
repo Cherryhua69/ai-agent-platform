@@ -10,4 +10,9 @@ class AgentRead(BaseModel):
     id: str
     name: str
     scenario: str
+    owner: str
     status: str
+    model_policy: str = Field(alias="modelPolicy")
+    workflow_id: str = Field(alias="workflowId")
+    knowledge_base_ids: list[str] = Field(alias="knowledgeBaseIds")
+    tool_ids: list[str] = Field(alias="toolIds")
