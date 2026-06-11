@@ -62,6 +62,7 @@ infra/
 - [Frontend UI Engineering Plan](docs/design/frontend-ui-engineering-plan.md)
 - [Open Design Prototype](docs/design/open-design-prototype.md)
 - [Codex Continuation Guide](docs/architecture/codex-continuation-guide.md)
+- [MVP Runtime Runbook](docs/architecture/mvp-runtime-runbook.md)
 
 ## GitHub Remote
 
