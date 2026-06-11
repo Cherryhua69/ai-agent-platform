@@ -1,5 +1,6 @@
 from fastapi import APIRouter, status
 
+from app.core.database import SessionLocal
 from app.modules.evaluation.repository import EvaluationRepository
 from app.modules.evaluation.schemas import (
     EvaluationCaseCreate,
@@ -11,7 +12,7 @@ from app.modules.evaluation.schemas import (
 )
 
 router = APIRouter(prefix="/api/evaluation-datasets", tags=["evaluations"])
-repo = EvaluationRepository()
+repo = EvaluationRepository(session_factory=SessionLocal)
 
 
 @router.post("", response_model=EvaluationDatasetRead, status_code=status.HTTP_201_CREATED)
