@@ -8,10 +8,12 @@ def test_create_and_list_agents():
 
     created = client.post("/api/agents", json={"name": "售后政策助手", "scenario": "售后问答"})
     assert created.status_code == 201
+    created_body = created.json()
 
     listed = client.get("/api/agents")
     assert listed.status_code == 200
-    assert listed.json()[0]["name"] == "售后政策助手"
+    agent = next(item for item in listed.json() if item["id"] == created_body["id"])
+    assert agent["name"] == "售后政策助手"
 
 
 def test_release_gate_returns_blocked_reason():

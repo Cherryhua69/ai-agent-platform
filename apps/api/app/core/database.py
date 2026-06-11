@@ -1,12 +1,19 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.pool import StaticPool
 
-DATABASE_URL = "mysql+pymysql://root:root@localhost:3306/ai_agent_platform?charset=utf8mb4"
+from app.core.config import settings
 
 
 class Base(DeclarativeBase):
     pass
 
 
-engine = create_engine(DATABASE_URL)
+connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+pool_options = {"poolclass": StaticPool} if settings.database_url == "sqlite+pysqlite:///:memory:" else {}
+engine = create_engine(settings.database_url, connect_args=connect_args, **pool_options)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+
+def init_database() -> None:
+    Base.metadata.create_all(bind=engine)

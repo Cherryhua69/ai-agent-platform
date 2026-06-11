@@ -1,10 +1,11 @@
 from fastapi import APIRouter, status
 
+from app.core.database import SessionLocal
 from app.modules.agent.repository import AgentRepository
 from app.modules.agent.schemas import AgentCreate, AgentRead
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
-repo = AgentRepository()
+repo = AgentRepository(session_factory=SessionLocal)
 
 
 @router.get("", response_model=list[AgentRead])

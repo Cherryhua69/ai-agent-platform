@@ -1,12 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.database import init_database
 from app.modules.agent.router import router as agent_router
 from app.modules.evaluation.router import router as evaluation_router
 from app.modules.knowledge.router import router as knowledge_router
 from app.modules.release.router import router as release_router
 from app.modules.tool.router import router as tool_router
 from app.modules.trace.router import router as trace_router
+
+init_database()
 
 app = FastAPI(title="AI Agent Platform API")
 
