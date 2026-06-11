@@ -7,7 +7,7 @@ test("9 个一级视图可切换", async ({ page }) => {
 
   const cases = [
     ["工作台", "企业 Agent 工作台"],
-    ["Agent Studio", "Agent Studio"],
+    ["智能体", "智能体"],
     ["工作流", "工作流编排"],
     ["知识库", "知识库与 RAG Pipeline"],
     ["工具与 MCP", "工具与 MCP 生态"],

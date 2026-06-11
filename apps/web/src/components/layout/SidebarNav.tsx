@@ -30,7 +30,7 @@ type NavItem = {
 
 export const navItems: NavItem[] = [
   { id: "dashboard", label: "工作台", group: "总览", icon: Gauge },
-  { id: "agents", label: "Agent Studio", group: "构建", icon: BrainCircuit },
+  { id: "agents", label: "智能体", group: "构建", icon: BrainCircuit },
   { id: "workflow", label: "工作流", group: "构建", icon: GitBranch },
   { id: "knowledge", label: "知识库", group: "构建", icon: Library },
   { id: "tools", label: "工具与 MCP", group: "构建", icon: Boxes },
