@@ -542,6 +542,25 @@ tr.selected td {
   font-weight: 620;
 }
 
+.inline-success,
+.inline-error {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.inline-success {
+  color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.inline-error {
+  color: var(--bad);
+  background: var(--bad-soft);
+}
+
 .wizard-list,
 .timeline-list {
   display: grid;

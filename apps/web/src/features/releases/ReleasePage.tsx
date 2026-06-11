@@ -32,7 +32,10 @@ export function ReleasePage() {
         </Panel>
         <Panel title="发布门禁" meta={<StatusPill tone={gate?.status === "blocked" ? "bad" : "ok"}>{gate?.status ?? "blocked"}</StatusPill>}>
           <KeyValueList
-            items={reasons.map((reason) => [reason, <StatusPill key={reason} tone="bad">blocked</StatusPill>])}
+            items={[
+              ...(gate?.auditId ? [["审计记录", gate.auditId] as [string, React.ReactNode]] : []),
+              ...reasons.map((reason) => [reason, <StatusPill key={reason} tone="bad">blocked</StatusPill>] as [string, React.ReactNode])
+            ]}
           />
         </Panel>
       </div>

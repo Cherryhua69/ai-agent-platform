@@ -57,6 +57,7 @@ export type ReleaseGate = {
   status: GateStatus;
   reasons: string[];
   checkedAt: string;
+  auditId?: string;
 };
 
 export type TraceStep = {
@@ -76,4 +77,16 @@ export type RunTrace = {
   status: TraceStepStatus;
   costCny: number;
   steps: TraceStep[];
+};
+
+export type EvaluationRun = {
+  id: string;
+  datasetId: string;
+  agentId: string;
+  passRate: number;
+  failedCases: string[];
+  summary: {
+    costCny: number;
+    latencyMs: number;
+  };
 };
