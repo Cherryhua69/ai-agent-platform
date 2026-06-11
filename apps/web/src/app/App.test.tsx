@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { App } from "./App";
 import { AppProviders } from "./providers";
 
@@ -18,6 +18,23 @@ const viewCases = [
 ];
 
 describe("App", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("工作台不显示暂未接入闭环的操作按钮", async () => {
+    render(
+      <AppProviders>
+        <App />
+      </AppProviders>
+    );
+
+    expect(await screen.findByRole("heading", { name: "企业 Agent 工作台" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "导入资产" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "创建 Agent" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "查看阻断" })).not.toBeInTheDocument();
+  });
+
   it("支持 10 个一级视图导航切换", async () => {
     const user = userEvent.setup();
     render(

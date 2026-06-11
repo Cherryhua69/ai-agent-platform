@@ -19,6 +19,7 @@ export function DashboardPage() {
       eyebrow="工作台 / 运行健康"
       title="企业 Agent 工作台"
       description="从 Agent 设计、工作流、知识、工具、评测、发布到审计的一体化入口。"
+      actions={false}
     >
       <div className="metrics-grid">
         <MetricCard label="Agent" value={String(agents.length || 2)} detail="mock API 已接入" />
@@ -50,7 +51,7 @@ export function DashboardPage() {
             </div>
           </div>
         </Panel>
-        <Panel title="风险待办" meta={<button className="btn">查看阻断</button>}>
+        <Panel title="风险待办">
           <KeyValueList
             items={(blockedGates[0]?.reasons ?? ["工具健康异常：create_ticket degraded", "关键评测用例失败"]).map((reason) => [
               reason,
