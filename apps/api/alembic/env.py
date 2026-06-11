@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.core.database import Base
 from app.modules.agent.models import AgentModel  # noqa: F401
 from app.modules.audit.models import AuditLogModel  # noqa: F401
+from app.modules.knowledge.models import KnowledgeBaseModel, KnowledgeDocumentModel  # noqa: F401
 
 config = context.config
 

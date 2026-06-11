@@ -1,5 +1,6 @@
 from fastapi import APIRouter, status
 
+from app.core.database import SessionLocal
 from app.modules.knowledge.repository import KnowledgeRepository
 from app.modules.knowledge.schemas import (
     KnowledgeBaseCreate,
@@ -12,7 +13,7 @@ from app.modules.knowledge.schemas import (
 )
 
 router = APIRouter(prefix="/api/knowledge-bases", tags=["knowledge-bases"])
-repo = KnowledgeRepository()
+repo = KnowledgeRepository(session_factory=SessionLocal)
 
 
 @router.get("", response_model=list[KnowledgeBaseRead])
