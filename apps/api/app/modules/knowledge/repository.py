@@ -20,15 +20,26 @@ class KnowledgeRepository:
         self._session_factory = session_factory
         self._knowledge_bases: dict[str, KnowledgeBaseRead] = {}
         self._documents: dict[str, list[KnowledgeDocumentRead]] = {}
-        self._seed_knowledge_base = KnowledgeBaseRead(
-            id="kb-after-sale",
-            name="售后政策库",
-            source="上传 + 飞书预留",
-            documentCount=128,
-            retrievalStrategy="Hybrid + Rerank",
-            qualityScore=92,
-            status="ready",
-        )
+        self._seed_knowledge_bases = [
+            KnowledgeBaseRead(
+                id="kb-after-sale",
+                name="售后政策库",
+                source="上传 + 飞书预留",
+                documentCount=128,
+                retrievalStrategy="Hybrid + Rerank",
+                qualityScore=92,
+                status="ready",
+            ),
+            KnowledgeBaseRead(
+                id="kb-warranty",
+                name="保修政策库",
+                source="PDF",
+                documentCount=42,
+                retrievalStrategy="Vector",
+                qualityScore=71,
+                status="stale",
+            ),
+        ]
 
     def create_knowledge_base(self, payload: KnowledgeBaseCreate) -> KnowledgeBaseRead:
         knowledge_base_id = f"kb_{uuid4().hex[:8]}"
@@ -66,9 +77,9 @@ class KnowledgeRepository:
         if self._session_factory:
             with self._session_factory() as session:
                 models = session.scalars(select(KnowledgeBaseModel).order_by(KnowledgeBaseModel.created_at.asc())).all()
-            return [self._seed_knowledge_base, *[self._to_read_model(item) for item in models]]
+            return [*self._seed_knowledge_bases, *[self._to_read_model(item) for item in models]]
 
-        return [self._seed_knowledge_base, *self._knowledge_bases.values()]
+        return [*self._seed_knowledge_bases, *self._knowledge_bases.values()]
 
     def add_document(self, knowledge_base_id: str, payload: KnowledgeDocumentCreate) -> KnowledgeDocumentRead:
         document = KnowledgeDocumentRead(
