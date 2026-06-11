@@ -48,8 +48,8 @@ export function AgentStudioPage() {
 
   return (
     <PageScaffold
-      eyebrow="构建 / Agent Studio"
-      title="Agent Studio"
+      eyebrow="构建 / 智能体"
+      title="智能体"
       description="覆盖 Agent 创建向导、模型与 Prompt、知识与变量、工具与 MCP、评测集和发布策略。"
       actions={
         <>

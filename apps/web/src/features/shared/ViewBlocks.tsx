@@ -4,29 +4,30 @@ type PageScaffoldProps = {
   eyebrow: string;
   title: string;
   description: string;
-  actions?: React.ReactNode;
+  actions?: React.ReactNode | false;
   children: React.ReactNode;
 };
 
 export function PageScaffold({ eyebrow, title, description, actions, children }: PageScaffoldProps) {
+  const headerActions =
+    actions === false ? (
+      <></>
+    ) : (
+      actions ?? (
+        <>
+          <button className="btn" type="button">
+            导入资产
+          </button>
+          <button className="btn primary" type="button">
+            创建 Agent
+          </button>
+        </>
+      )
+    );
+
   return (
     <article className="view-page">
-      <PageHeader
-        title={title}
-        description={description}
-        actions={
-          actions ?? (
-            <>
-              <button className="btn" type="button">
-                导入资产
-              </button>
-              <button className="btn primary" type="button">
-                创建 Agent
-              </button>
-            </>
-          )
-        }
-      />
+      <PageHeader title={title} description={description} actions={headerActions} />
       <p className="page-eyebrow">{eyebrow}</p>
       <div className="view-stack">{children}</div>
     </article>

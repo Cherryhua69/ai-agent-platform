@@ -27,7 +27,7 @@
       <div class="nav-group">总览</div>
       <button class="active" data-view="dashboard"><span class="nav-ico">01</span><span class="label">工作台</span></button>
       <div class="nav-group">构建</div>
-      <button data-view="studio"><span class="nav-ico">02</span><span class="label">Agent Studio</span></button>
+      <button data-view="studio"><span class="nav-ico">02</span><span class="label">智能体</span></button>
       <button data-view="workflow"><span class="nav-ico">03</span><span class="label">工作流</span></button>
       <button data-view="knowledge"><span class="nav-ico">04</span><span class="label">知识库</span></button>
       <button data-view="tools"><span class="nav-ico">05</span><span class="label">工具与 MCP</span></button>
@@ -35,7 +35,7 @@
       <button data-view="observe"><span class="nav-ico">06</span><span class="label">评测与观测</span></button>
       <button data-view="release"><span class="nav-ico">07</span><span class="label">发布渠道</span></button>
       <button data-view="market"><span class="nav-ico">08</span><span class="label">模板市场</span></button>
-      <button data-view="govern"><span class="nav-ico">19</span><span class="label">治理设置</span></button>
+      <button data-view="govern"><span class="nav-ico">09</span><span class="label">治理设置</span></button>
     </nav>
     <div class="side-status"><b>生产健康</b><div class="mini"><span>Agent 可用 14/16</span><span>工具异常 1 个</span><span>发布阻断 5 项</span></div></div>
     <div class="side-foot">策略基线：借鉴 Dify / Coze / Flowise / Langflow / RAGFlow / AnythingLLM / n8n，强化私有化、评测门禁与审计。</div>
@@ -54,7 +54,7 @@
         <div class="panel reveal" style="margin-top:14px"><div class="ph"><div class="pt">最近运行</div><span class="small">按异常优先排序</span></div><div class="table-wrap"><table><thead><tr><th>Run ID</th><th>Agent</th><th>入口</th><th>耗时</th><th>成本</th><th>结果</th><th>归因</th></tr></thead><tbody><tr class="selected"><td>run_8f23</td><td>售后政策助手</td><td>API</td><td>8.4s</td><td>¥0.09</td><td><span class="status bad">失败</span></td><td>MCP timeout</td></tr><tr><td>run_8f12</td><td>订单查询助手</td><td>Web Chat</td><td>1.3s</td><td>¥0.03</td><td><span class="status ok">成功</span></td><td>正常</td></tr><tr><td>run_8e98</td><td>合同审阅 Flow</td><td>手动评测</td><td>2.6s</td><td>¥0.11</td><td><span class="status warn">人工确认</span></td><td>高风险条款</td></tr></tbody></table></div></div>
       </div>
       <div class="view" id="studio">
-        <div class="page-head"><div><div class="crumb">构建 / Agent Studio</div><h1>Agent Studio</h1><p class="sub">融合 Coze 的创建向导、Dify 的生产配置和 AnythingLLM 的 workspace 隔离。</p></div><div class="actions"><button class="btn">从模板创建</button><button class="btn primary">保存草稿版本</button></div></div>
+        <div class="page-head"><div><div class="crumb">构建 / 智能体</div><h1>智能体</h1><p class="sub">融合 Coze 的创建向导、Dify 的生产配置和 AnythingLLM 的 workspace 隔离。</p></div><div class="actions"><button class="btn">从模板创建</button><button class="btn primary">保存草稿版本</button></div></div>
         <div class="split reveal"><div class="panel strong"><div class="ph"><div class="pt">创建向导</div><span class="status warn">v1.8-draft</span></div><div class="pb wizard"><div class="steps-list"><div class="wstep active"><span class="num">1</span>基础信息</div><div class="wstep"><span class="num">2</span>模型 / Prompt</div><div class="wstep"><span class="num">3</span>知识与变量</div><div class="wstep"><span class="num">4</span>工具与 MCP</div><div class="wstep"><span class="num">5</span>评测集</div><div class="wstep"><span class="num">6</span>发布策略</div></div><div><div class="form"><div><label>Agent 名称</label><input class="input" value="售后政策助手" /></div><div><label>业务场景</label><input class="input" value="售后问答与工单分流" /></div><div><label>负责人</label><input class="input" value="陈晓" /></div><div><label>目标渠道</label><select class="select"><option>API + Embedded Chatbot</option></select></div></div><div style="margin-top:12px"><label>系统提示词</label><textarea>回答必须基于授权知识库和工具返回结果；涉及退款、赔付、数据库写入、外部写接口时触发确认。</textarea></div></div></div></div><aside class="inspector"><div class="ph"><div class="pt">Agent 资产状态</div></div><div class="pb gate"><div class="kv"><span>模型策略</span><b>gpt-4.1 / fallback qwen-max</b></div><div class="kv"><span>绑定知识库</span><b>2 ready</b></div><div class="kv"><span>绑定工具</span><b>1 degraded</b></div><div class="kv"><span>评测集</span><b>42 cases</b></div><div class="kv"><span>发布检查</span><b><span class="status bad">blocked</span></b></div></div></aside></div>
       </div>
       <div class="view" id="workflow">

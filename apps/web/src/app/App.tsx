@@ -8,14 +8,12 @@ import { GovernancePage } from "../features/governance/GovernancePage";
 import { KnowledgePage } from "../features/knowledge/KnowledgePage";
 import { MarketplacePage } from "../features/marketplace/MarketplacePage";
 import { ReleasePage } from "../features/releases/ReleasePage";
-import { StrategyPage } from "../features/strategy/StrategyPage";
 import { ToolsPage } from "../features/tools/ToolsPage";
 import { WorkflowPage } from "../features/workflows/WorkflowPage";
 import { useViewTransition } from "../lib/motion/useViewTransition";
 
 const views: Record<ViewId, React.ReactNode> = {
   dashboard: <DashboardPage />,
-  strategy: <StrategyPage />,
   agents: <AgentStudioPage />,
   workflow: <WorkflowPage />,
   knowledge: <KnowledgePage />,
