@@ -1,10 +1,11 @@
 from fastapi import APIRouter, status
 
+from app.core.database import SessionLocal
 from app.modules.tool.repository import ToolRepository
 from app.modules.tool.schemas import McpServerCreate, McpServerRead, ToolCreate, ToolHealthRead, ToolRead
 
 router = APIRouter(tags=["tools"])
-repo = ToolRepository()
+repo = ToolRepository(session_factory=SessionLocal)
 
 
 @router.post("/api/mcp-servers", response_model=McpServerRead, status_code=status.HTTP_201_CREATED)
