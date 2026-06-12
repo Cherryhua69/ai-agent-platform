@@ -1,124 +1,243 @@
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
-import { useRef, useState } from "react";
-import { KeyValueList, PageScaffold, Panel, SimpleTable, StatusPill } from "../shared/ViewBlocks";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
+import { KeyValueList, PageScaffold, Panel, StatusPill } from "../shared/ViewBlocks";
+import type { Agent, AgentStatus, GateStatus, HealthStatus } from "../../types/domain";
 import { useAgents } from "./useAgents";
 import { useCreateAgent } from "./useCreateAgent";
-import { useSimulateAgentRun } from "./useSimulateAgentRun";
 
 gsap.registerPlugin(useGSAP);
 
-const steps = ["基础信息", "模型与 Prompt", "知识库", "工具权限", "发布策略"];
+const defaultForm = {
+  name: "",
+  scenario: "",
+  modelPolicy: "gpt-4.1 + fallback"
+};
+
+const statusLabelMap: Record<AgentStatus | GateStatus | HealthStatus, string> = {
+  draft: "草稿",
+  ready: "就绪",
+  published: "已发布",
+  blocked: "阻断",
+  passed: "通过",
+  review_required: "需复核",
+  online: "在线",
+  degraded: "异常",
+  offline: "离线",
+  guarded: "受控"
+};
+
+function toStatusLabel(status: string) {
+  return statusLabelMap[status as keyof typeof statusLabelMap] ?? "未知";
+}
+
+function getAgentTone(status: Agent["status"]): "ok" | "warn" | "bad" | "info" | "gray" {
+  if (status === "ready" || status === "published") {
+    return "ok";
+  }
+
+  if (status === "blocked") {
+    return "bad";
+  }
+
+  if (status === "draft") {
+    return "info";
+  }
+
+  return "gray";
+}
+
+function formatResourceSummary(agent: Agent) {
+  return `${agent.knowledgeBaseIds.length} 个知识库 / ${agent.toolIds.length} 个工具`;
+}
 
 export function AgentStudioPage() {
   const agentsQuery = useAgents();
   const createAgent = useCreateAgent();
-  const simulateAgentRun = useSimulateAgentRun();
-  const runSummaryRef = useRef<HTMLParagraphElement | null>(null);
-  const [createdWorkflowId, setCreatedWorkflowId] = useState<string | null>(null);
+  const assetsScrollRef = useRef<HTMLDivElement | null>(null);
+  const [form, setForm] = useState(defaultForm);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [createdMessage, setCreatedMessage] = useState<string | null>(null);
 
   const agents = agentsQuery.data ?? [];
   const createdAgent = createAgent.data;
-  const latestRun = simulateAgentRun.data;
-  const failedStep = latestRun?.steps.find((step) => step.status === "failed");
+  const visibleAgents = useMemo(() => {
+    if (!createdAgent || agents.some((agent) => agent.id === createdAgent.id)) {
+      return agents;
+    }
+
+    return [createdAgent, ...agents];
+  }, [agents, createdAgent]);
+  const selectedAgent =
+    visibleAgents.find((agent) => agent.id === selectedAgentId) ?? createdAgent ?? visibleAgents[0] ?? null;
+
+  useEffect(() => {
+    if (!selectedAgentId && visibleAgents[0]) {
+      setSelectedAgentId(visibleAgents[0].id);
+    }
+  }, [selectedAgentId, visibleAgents]);
 
   useGSAP(
     () => {
-      if (!latestRun || !runSummaryRef.current) {
+      if (!assetsScrollRef.current) {
         return;
       }
 
-      gsap.fromTo(runSummaryRef.current, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.28, ease: "power2.out" });
+      const rows = assetsScrollRef.current.querySelectorAll("tbody tr");
+      if (!rows.length) {
+        return;
+      }
+
+      gsap.fromTo(
+        rows,
+        { autoAlpha: 0, y: 8 },
+        { autoAlpha: 1, y: 0, duration: 0.22, ease: "power2.out", stagger: 0.03, overwrite: "auto" }
+      );
     },
-    { dependencies: [latestRun?.id], scope: runSummaryRef }
+    { dependencies: [visibleAgents.length, selectedAgent?.id] }
   );
 
-  function handleCreateDraft() {
-    createAgent.mutate(
-      {
-        name: "售后政策助手",
-        scenario: "售后问答与工单分流"
-      },
-      {
-        onSuccess: (agent) => setCreatedWorkflowId(agent.workflowId)
-      }
-    );
-  }
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const payload = {
+      name: form.name.trim(),
+      scenario: form.scenario.trim(),
+      modelPolicy: form.modelPolicy.trim()
+    };
 
-  function handleSimulateRun() {
-    simulateAgentRun.mutate(createdAgent?.id ?? "agent-after-sale");
+    if (!payload.name || !payload.scenario || !payload.modelPolicy) {
+      return;
+    }
+
+    createAgent.mutate(payload, {
+      onSuccess: (agent) => {
+        setSelectedAgentId(agent.id);
+        setCreatedMessage(`已创建智能体：${agent.name}`);
+        setForm(defaultForm);
+      }
+    });
   }
 
   return (
     <PageScaffold
       title="智能体"
-      description="创建、检查和试运行智能体。页面只保留 MVP 所需的资产列表、创建向导和最新运行反馈。"
+      description="创建、查看和管理智能体资产，聚焦基础配置、绑定资源与发布状态。"
       actions={
-        <>
-          <button className="btn" disabled={simulateAgentRun.isPending} onClick={handleSimulateRun} type="button">
-            {simulateAgentRun.isPending ? "试运行中..." : "试运行"}
-          </button>
-          <button className="btn primary" disabled={createAgent.isPending} onClick={handleCreateDraft} type="button">
-            {createAgent.isPending ? "创建中..." : "创建草稿 Agent"}
-          </button>
-        </>
+        <button className="btn primary" disabled={createAgent.isPending} type="submit" form="agent-create-form">
+          {createAgent.isPending ? "创建中..." : "创建智能体"}
+        </button>
       }
     >
-      <div className="grid-two">
-        <Panel title="创建流程" strong>
-          <div className="wizard-list">
-            {steps.map((step, index) => (
-              <div className={index === 0 ? "wizard-step active" : "wizard-step"} key={step}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <strong>{step}</strong>
-              </div>
-            ))}
-          </div>
+      <div className="grid-two agent-workspace">
+        <Panel title="创建智能体" strong>
+          <form className="agent-form" id="agent-create-form" onSubmit={handleSubmit}>
+            <label>
+              <span>智能体名称</span>
+              <input
+                aria-label="智能体名称"
+                value={form.name}
+                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                placeholder="例如：售后政策助手"
+              />
+            </label>
+            <label>
+              <span>应用场景</span>
+              <textarea
+                aria-label="应用场景"
+                value={form.scenario}
+                onChange={(event) => setForm((current) => ({ ...current, scenario: event.target.value }))}
+                placeholder="描述智能体要处理的业务任务"
+                rows={3}
+              />
+            </label>
+            <label>
+              <span>模型策略</span>
+              <input
+                aria-label="模型策略"
+                value={form.modelPolicy}
+                onChange={(event) => setForm((current) => ({ ...current, modelPolicy: event.target.value }))}
+              />
+            </label>
+          </form>
+          {createdMessage ? <p className="inline-success">{createdMessage}</p> : null}
+          {createAgent.isError ? <p className="inline-error">创建失败，请检查 API 服务后重试。</p> : null}
         </Panel>
-        <Panel title="当前草稿">
-          <KeyValueList
-            items={[
-              ["Agent", createdAgent?.name ?? "售后政策助手"],
-              ["模型策略", createdAgent?.modelPolicy ?? "gpt-4.1 + fallback"],
-              ["工作流", createdWorkflowId ?? createdAgent?.workflowId ?? "flow-after-sale"],
-              ["知识库", createdAgent ? createdAgent.knowledgeBaseIds.join(" / ") : "售后政策库 / 质保条款库"],
-              ["工具健康", <StatusPill tone="bad">1 degraded</StatusPill>],
-              ["发布检查", <StatusPill tone="bad">blocked</StatusPill>],
-              ["最新运行", latestRun ? latestRun.id : "等待试运行"],
-              ["Trace 成本", latestRun ? `¥${latestRun.costCny.toFixed(2)}` : "未产生"]
-            ]}
-          />
-          {createdAgent ? (
-            <p className="inline-success">
-              已创建草稿：{createdAgent.name}
-              <br />
-              <span>{createdAgent.workflowId}</span>
-            </p>
-          ) : null}
-          {latestRun ? (
-            <p className="inline-success" ref={runSummaryRef}>
-              最新运行：{latestRun.id}
-              <br />
-              <span>{failedStep ? `失败步骤：${failedStep.title}` : "全部步骤通过"}</span>
-            </p>
-          ) : null}
-          {simulateAgentRun.isError ? <p className="inline-error">试运行失败，请检查 API 服务。</p> : null}
-          {createAgent.isError ? <p className="inline-error">创建失败，请检查 API 服务。</p> : null}
+
+        <Panel
+          title={selectedAgent ? `当前智能体：${selectedAgent.name}` : "当前智能体"}
+          meta={
+            selectedAgent ? (
+              <StatusPill tone={getAgentTone(selectedAgent.status)}>{toStatusLabel(selectedAgent.status)}</StatusPill>
+            ) : null
+          }
+        >
+          {selectedAgent ? (
+            <KeyValueList
+              items={[
+                ["智能体名称", selectedAgent.name],
+                ["应用场景", selectedAgent.scenario],
+                ["模型策略", selectedAgent.modelPolicy],
+                ["工作流", selectedAgent.workflowId],
+                ["知识库", selectedAgent.knowledgeBaseIds.join(" / ")],
+                ["工具权限", selectedAgent.toolIds.join(" / ")],
+                [
+                  "发布检查",
+                  <StatusPill key="release-check" tone={selectedAgent.status === "blocked" ? "bad" : "ok"}>
+                    {selectedAgent.status === "blocked" ? "阻断" : "通过"}
+                  </StatusPill>
+                ]
+              ]}
+            />
+          ) : (
+            <p className="empty-state">暂无智能体，请先创建智能体。</p>
+          )}
         </Panel>
       </div>
-      <Panel title="智能体资产">
-        <SimpleTable
-          columns={["名称", "场景", "模型", "负责人", "状态"]}
-          rows={(agents.length ? agents : [createdAgent].filter(Boolean)).map((agent) => [
-            agent?.name,
-            agent?.scenario,
-            agent?.modelPolicy,
-            agent?.owner,
-            <StatusPill key={agent?.id} tone={agent?.status === "blocked" ? "bad" : agent?.status === "ready" ? "ok" : "info"}>
-              {agent?.status}
-            </StatusPill>
-          ])}
-        />
+
+      <Panel title="智能体资产" className="agent-assets-panel">
+        <div className="agent-assets-scroll" aria-label="智能体资产滚动预览" ref={assetsScrollRef}>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>名称</th>
+                  <th>应用场景</th>
+                  <th>模型策略</th>
+                  <th>工作流</th>
+                  <th>绑定资源</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleAgents.map((agent) => {
+                  const selected = selectedAgent?.id === agent.id;
+                  return (
+                    <tr className={selected ? "selected" : undefined} key={agent.id}>
+                      <td>
+                        <strong>{agent.name}</strong>
+                        {selected ? <span className="current-row-label">当前</span> : null}
+                      </td>
+                      <td>{agent.scenario}</td>
+                      <td>{agent.modelPolicy}</td>
+                      <td>{agent.workflowId}</td>
+                      <td>{formatResourceSummary(agent)}</td>
+                      <td>
+                        <StatusPill tone={getAgentTone(agent.status)}>{toStatusLabel(agent.status)}</StatusPill>
+                      </td>
+                      <td>
+                        <button className="table-action" type="button" onClick={() => setSelectedAgentId(agent.id)}>
+                          查看 <span className="sr-only">{agent.name}</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </Panel>
     </PageScaffold>
   );

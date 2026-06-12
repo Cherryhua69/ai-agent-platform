@@ -101,7 +101,7 @@ describe("AgentStudioPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "创建智能体" }));
 
     await waitFor(() => expect(screen.getByText("已创建智能体：订单查询助手")).toBeInTheDocument());
-    expect(screen.getByText("flow_agent-order")).toBeInTheDocument();
+    expect(screen.getAllByText("flow_agent-order").length).toBeGreaterThan(0);
     expect(screen.getAllByText("草稿").length).toBeGreaterThan(0);
     expect(JSON.parse(String(fetchMock.mock.calls.find((call) => call[1]?.method === "POST")?.[1]?.body))).toEqual({
       name: "订单查询助手",
@@ -124,7 +124,7 @@ describe("AgentStudioPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "查看 合同审阅助手" }));
 
     expect(screen.getByText("当前智能体：合同审阅助手")).toBeInTheDocument();
-    expect(screen.getByText("workflow-contract")).toBeInTheDocument();
-    expect(screen.getByText("就绪")).toBeInTheDocument();
+    expect(screen.getAllByText("workflow-contract").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("就绪").length).toBeGreaterThan(0);
   });
 });
