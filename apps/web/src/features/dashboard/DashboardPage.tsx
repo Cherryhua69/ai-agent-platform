@@ -24,15 +24,15 @@ export function DashboardPage() {
       <div className="grid-two">
         <Panel title="近期运行" meta={<StatusPill tone={hasDegradedTool ? "bad" : "ok"}>{hasDegradedTool ? "有异常" : "稳定"}</StatusPill>} strong>
           <SimpleTable
-            columns={["Run", "智能体", "归因", "状态", "负责人"]}
+            columns={["Run", "智能体", "归因", "状态"]}
             rows={[
-              ["run_8f23", agents[0]?.name ?? "售后政策助手", "create_ticket timeout", <StatusPill tone="bad">failed</StatusPill>, agents[0]?.owner ?? "陈晓"],
-              ["run_3ac1", "合同审阅助手", "引用置信度不足", <StatusPill tone="warn">review</StatusPill>, "王宁"],
-              ["run_922e", "数据查询助手", "权限策略阻断", <StatusPill tone="bad">blocked</StatusPill>, "周文"]
+              ["run_8f23", agents[0]?.name ?? "售后政策助手", "create_ticket timeout", <StatusPill tone="bad">failed</StatusPill>],
+              ["run_3ac1", "合同审阅助手", "引用置信度不足", <StatusPill tone="warn">review</StatusPill>],
+              ["run_922e", "数据查询助手", "权限策略阻断", <StatusPill tone="bad">blocked</StatusPill>]
             ]}
           />
         </Panel>
-        <Panel title="待处理">
+        <Panel title="异常运行">
           <KeyValueList
             items={(blockedGates[0]?.reasons ?? ["工具健康异常：create_ticket degraded", "关键评测用例失败"]).map((reason) => [
               reason,

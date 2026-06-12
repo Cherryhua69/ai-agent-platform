@@ -7,58 +7,37 @@ from app.modules.agent.repository import AgentRepository
 from app.modules.agent.schemas import AgentCreate
 
 
-def test_create_agent_draft_uses_submitted_model_policy():
+def test_create_agent_draft():
+    repo = AgentRepository()
+
+    agent = repo.create(AgentCreate(name="售后政策助手", scenario="售后问答"))
+
+    assert agent.id.startswith("agent_")
+    assert agent.name == "售后政策助手"
+    assert agent.status == "draft"
+    assert not hasattr(agent, "model_policy")
+
+
+def test_agent_create_ignores_removed_model_policy_field():
     repo = AgentRepository()
 
     agent = repo.create(
         AgentCreate(
             name="售后政策助手",
             scenario="售后问答",
-            modelPolicy="gpt-4.1-mini + strict citation",
         )
     )
 
-    assert agent.id.startswith("agent_")
-    assert agent.name == "售后政策助手"
-    assert agent.status == "draft"
-    assert agent.model_policy == "gpt-4.1-mini + strict citation"
+    assert not hasattr(agent, "model_policy")
 
 
-def test_create_agent_draft_uses_python_model_policy_field_name():
-    repo = AgentRepository()
-
-    agent = repo.create(
-        AgentCreate(
-            name="鍞悗鏀跨瓥鍔╂墜",
-            scenario="鍞悗闂瓟",
-            model_policy="gpt-4.1-mini + internal policy",
-        )
-    )
-
-    assert agent.model_policy == "gpt-4.1-mini + internal policy"
-
-
-def test_create_agent_draft_keeps_default_model_policy_for_legacy_payloads():
-    repo = AgentRepository()
-
-    agent = repo.create(AgentCreate(name="售后政策助手", scenario="售后问答"))
-
-    assert agent.model_policy == "gpt-4.1 + fallback"
-
-
-def test_agent_repository_persists_model_policy_with_session_factory():
+def test_agent_repository_persists_agents_with_session_factory():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine, tables=[AgentModel.__table__])
     session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
     writer = AgentRepository(session_factory=session_factory)
-    created = writer.create(
-        AgentCreate(
-            name="售后政策助手",
-            scenario="售后问答",
-            modelPolicy="gpt-4.1-mini + strict citation",
-        )
-    )
+    created = writer.create(AgentCreate(name="售后政策助手", scenario="售后问答"))
 
     reader = AgentRepository(session_factory=session_factory)
     agents = reader.list()
@@ -67,4 +46,4 @@ def test_agent_repository_persists_model_policy_with_session_factory():
     assert agents[0].name == "售后政策助手"
     assert agents[0].scenario == "售后问答"
     assert agents[0].workflow_id == f"flow_{created.id}"
-    assert agents[0].model_policy == "gpt-4.1-mini + strict citation"
+    assert not hasattr(agents[0], "model_policy")

@@ -21,7 +21,6 @@ const existingAgents = [
     scenario: "售后问答与工单分流",
     owner: "陈晓",
     status: "blocked",
-    modelPolicy: "gpt-4.1 + fallback",
     workflowId: "workflow-after-sale",
     knowledgeBaseIds: ["kb-after-sale", "kb-warranty"],
     toolIds: ["tool-create-ticket", "tool-query-order"]
@@ -32,7 +31,6 @@ const existingAgents = [
     scenario: "合同风险提示",
     owner: "王宁",
     status: "ready",
-    modelPolicy: "gpt-4.1-mini + strict citation",
     workflowId: "workflow-contract",
     knowledgeBaseIds: ["kb-contract"],
     toolIds: ["tool-query-order"]
@@ -58,7 +56,8 @@ describe("AgentStudioPage", () => {
 
     expect(await screen.findByLabelText("智能体名称")).toBeInTheDocument();
     expect(screen.getByLabelText("应用场景")).toBeInTheDocument();
-    expect(screen.getByLabelText("模型策略")).toBeInTheDocument();
+    expect(screen.queryByLabelText("模型策略")).not.toBeInTheDocument();
+    expect(screen.queryByText("模型策略")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创建智能体" })).toBeInTheDocument();
     expect(screen.queryByText("创建草稿 Agent")).not.toBeInTheDocument();
     expect(screen.queryByText("试运行")).not.toBeInTheDocument();
@@ -73,7 +72,6 @@ describe("AgentStudioPage", () => {
       scenario: "订单状态查询",
       owner: "系统默认",
       status: "draft",
-      modelPolicy: "gpt-4.1-mini + strict citation",
       workflowId: "flow_agent-order",
       knowledgeBaseIds: ["kb-order"],
       toolIds: ["tool-query-order"]
@@ -97,7 +95,6 @@ describe("AgentStudioPage", () => {
 
     fireEvent.change(await screen.findByLabelText("智能体名称"), { target: { value: "订单查询助手" } });
     fireEvent.change(screen.getByLabelText("应用场景"), { target: { value: "订单状态查询" } });
-    fireEvent.change(screen.getByLabelText("模型策略"), { target: { value: "gpt-4.1-mini + strict citation" } });
     fireEvent.click(screen.getByRole("button", { name: "创建智能体" }));
 
     await waitFor(() => expect(screen.getByText("已创建智能体：订单查询助手")).toBeInTheDocument());
@@ -105,8 +102,7 @@ describe("AgentStudioPage", () => {
     expect(screen.getAllByText("草稿").length).toBeGreaterThan(0);
     expect(JSON.parse(String(fetchMock.mock.calls.find((call) => call[1]?.method === "POST")?.[1]?.body))).toEqual({
       name: "订单查询助手",
-      scenario: "订单状态查询",
-      modelPolicy: "gpt-4.1-mini + strict citation"
+      scenario: "订单状态查询"
     });
   });
 

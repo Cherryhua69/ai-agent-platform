@@ -9,7 +9,6 @@ export type Agent = {
   scenario: string;
   owner: string;
   status: AgentStatus;
-  modelPolicy: string;
   workflowId: string;
   knowledgeBaseIds: string[];
   toolIds: string[];

@@ -20,7 +20,6 @@ class AgentRepository:
             scenario=payload.scenario,
             owner="陈晓",
             status="draft",
-            modelPolicy=payload.model_policy,
             workflowId=f"flow_{agent_id}",
             knowledgeBaseIds=["kb-after-sale", "kb-warranty"],
             toolIds=["tool-ticket", "tool-order"],
@@ -34,7 +33,6 @@ class AgentRepository:
                         name=agent.name,
                         scenario=agent.scenario,
                         status=agent.status,
-                        model_policy=agent.model_policy,
                     )
                 )
                 session.commit()
@@ -58,7 +56,6 @@ class AgentRepository:
             scenario=agent.scenario,
             owner="陈晓",
             status=agent.status,
-            modelPolicy=agent.model_policy,
             workflowId=f"flow_{agent.id}",
             knowledgeBaseIds=["kb-after-sale", "kb-warranty"],
             toolIds=["tool-ticket", "tool-order"],

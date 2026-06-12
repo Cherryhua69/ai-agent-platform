@@ -7,7 +7,6 @@ export const agents: Agent[] = [
     scenario: "订单售后、退款和质保政策问答",
     owner: "陈晓",
     status: "blocked",
-    modelPolicy: "gpt-4.1 + fallback",
     workflowId: "workflow-after-sale",
     knowledgeBaseIds: ["kb-after-sale", "kb-warranty"],
     toolIds: ["tool-create-ticket", "tool-query-order", "tool-refund-request"]
@@ -18,7 +17,6 @@ export const agents: Agent[] = [
     scenario: "合同条款抽取、风险提示和人工复核",
     owner: "王宁",
     status: "ready",
-    modelPolicy: "gpt-4.1-mini + strict citation",
     workflowId: "workflow-contract-review",
     knowledgeBaseIds: ["kb-contract"],
     toolIds: ["tool-query-order"]

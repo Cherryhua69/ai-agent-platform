@@ -11,8 +11,7 @@ gsap.registerPlugin(useGSAP);
 
 const defaultForm = {
   name: "",
-  scenario: "",
-  modelPolicy: "gpt-4.1 + fallback"
+  scenario: ""
 };
 
 const statusLabelMap: Record<AgentStatus | GateStatus | HealthStatus, string> = {
@@ -102,11 +101,10 @@ export function AgentStudioPage() {
     event.preventDefault();
     const payload = {
       name: form.name.trim(),
-      scenario: form.scenario.trim(),
-      modelPolicy: form.modelPolicy.trim()
+      scenario: form.scenario.trim()
     };
 
-    if (!payload.name || !payload.scenario || !payload.modelPolicy) {
+    if (!payload.name || !payload.scenario) {
       return;
     }
 
@@ -151,14 +149,6 @@ export function AgentStudioPage() {
                 rows={3}
               />
             </label>
-            <label>
-              <span>模型策略</span>
-              <input
-                aria-label="模型策略"
-                value={form.modelPolicy}
-                onChange={(event) => setForm((current) => ({ ...current, modelPolicy: event.target.value }))}
-              />
-            </label>
           </form>
           {createdMessage ? <p className="inline-success">{createdMessage}</p> : null}
           {createAgent.isError ? <p className="inline-error">创建失败，请检查 API 服务后重试。</p> : null}
@@ -177,7 +167,6 @@ export function AgentStudioPage() {
               items={[
                 ["智能体名称", selectedAgent.name],
                 ["应用场景", selectedAgent.scenario],
-                ["模型策略", selectedAgent.modelPolicy],
                 ["工作流", selectedAgent.workflowId],
                 ["知识库", selectedAgent.knowledgeBaseIds.join(" / ")],
                 ["工具权限", selectedAgent.toolIds.join(" / ")],
@@ -203,7 +192,6 @@ export function AgentStudioPage() {
                 <tr>
                   <th>名称</th>
                   <th>应用场景</th>
-                  <th>模型策略</th>
                   <th>工作流</th>
                   <th>绑定资源</th>
                   <th>状态</th>
@@ -220,7 +208,6 @@ export function AgentStudioPage() {
                         {selected ? <span className="current-row-label">当前</span> : null}
                       </td>
                       <td>{agent.scenario}</td>
-                      <td>{agent.modelPolicy}</td>
                       <td>{agent.workflowId}</td>
                       <td>{formatResourceSummary(agent)}</td>
                       <td>

@@ -44,11 +44,14 @@ type PanelProps = {
   meta?: React.ReactNode;
   children: React.ReactNode;
   strong?: boolean;
+  className?: string;
 };
 
-export function Panel({ title, meta, children, strong }: PanelProps) {
+export function Panel({ title, meta, children, strong, className }: PanelProps) {
+  const classNames = ["panel", strong ? "panel-strong" : "", "reveal-item", className ?? ""].filter(Boolean).join(" ");
+
   return (
-    <section className={strong ? "panel panel-strong reveal-item" : "panel reveal-item"}>
+    <section className={classNames}>
       <div className="panel-head">
         <strong>{title}</strong>
         {meta}

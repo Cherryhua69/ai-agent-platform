@@ -5,7 +5,6 @@ import type { Agent } from "../../types/domain";
 export type CreateAgentPayload = {
   name: string;
   scenario: string;
-  modelPolicy: string;
 };
 
 export function useCreateAgent() {
