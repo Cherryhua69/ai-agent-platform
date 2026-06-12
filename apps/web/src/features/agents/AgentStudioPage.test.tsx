@@ -14,91 +14,117 @@ function createWrapper() {
   };
 }
 
+const existingAgents = [
+  {
+    id: "agent-after-sale",
+    name: "售后政策助手",
+    scenario: "售后问答与工单分流",
+    owner: "陈晓",
+    status: "blocked",
+    modelPolicy: "gpt-4.1 + fallback",
+    workflowId: "workflow-after-sale",
+    knowledgeBaseIds: ["kb-after-sale", "kb-warranty"],
+    toolIds: ["tool-create-ticket", "tool-query-order"]
+  },
+  {
+    id: "agent-contract",
+    name: "合同审阅助手",
+    scenario: "合同风险提示",
+    owner: "王宁",
+    status: "ready",
+    modelPolicy: "gpt-4.1-mini + strict citation",
+    workflowId: "workflow-contract",
+    knowledgeBaseIds: ["kb-contract"],
+    toolIds: ["tool-query-order"]
+  }
+];
+
 describe("AgentStudioPage", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  it("可以通过真实 API 创建 Agent 草稿并展示返回结果", async () => {
+  it("展示创建智能体表单，并移除试运行与 Trace 内容", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({
-          id: "agent_12345678",
-          name: "售后政策助手",
-          scenario: "售后问答与工单分流",
-          owner: "陈晓",
-          status: "draft",
-          modelPolicy: "gpt-4.1 + fallback",
-          workflowId: "flow_agent_12345678",
-          knowledgeBaseIds: ["kb-after-sale", "kb-warranty"],
-          toolIds: ["tool-ticket", "tool-order"]
-        })
+        json: async () => existingAgents
       })
     );
 
     render(<AgentStudioPage />, { wrapper: createWrapper() });
 
-    fireEvent.click(screen.getByRole("button", { name: "创建草稿 Agent" }));
-
-    await waitFor(() => expect(screen.getByText("已创建草稿：售后政策助手")).toBeInTheDocument());
-    expect(screen.getAllByText("flow_agent_12345678")).toHaveLength(2);
+    expect(await screen.findByLabelText("智能体名称")).toBeInTheDocument();
+    expect(screen.getByLabelText("应用场景")).toBeInTheDocument();
+    expect(screen.getByLabelText("模型策略")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "创建智能体" })).toBeInTheDocument();
+    expect(screen.queryByText("创建草稿 Agent")).not.toBeInTheDocument();
+    expect(screen.queryByText("试运行")).not.toBeInTheDocument();
+    expect(screen.queryByText("最新运行")).not.toBeInTheDocument();
+    expect(screen.queryByText("Trace 成本")).not.toBeInTheDocument();
   });
 
-  it("可以触发试运行并展示最新 Trace 摘要", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-        if (init?.method === "POST" && String(_input).endsWith("/api/agents")) {
-          return {
-            ok: true,
-            json: async () => ({
-              id: "agent_12345678",
-              name: "售后政策助手",
-              scenario: "售后问答与工单分流",
-              owner: "陈晓",
-              status: "draft",
-              modelPolicy: "gpt-4.1 + fallback",
-              workflowId: "flow_agent_12345678",
-              knowledgeBaseIds: ["kb-after-sale", "kb-warranty"],
-              toolIds: ["tool-ticket", "tool-order"]
-            })
-          };
-        }
-
+  it("提交表单创建智能体，自动选中新智能体，并使用中文状态", async () => {
+    const createdAgent = {
+      id: "agent-order",
+      name: "订单查询助手",
+      scenario: "订单状态查询",
+      owner: "系统默认",
+      status: "draft",
+      modelPolicy: "gpt-4.1-mini + strict citation",
+      workflowId: "flow_agent-order",
+      knowledgeBaseIds: ["kb-order"],
+      toolIds: ["tool-query-order"]
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST" && String(input).endsWith("/api/agents")) {
         return {
           ok: true,
-          json: async () => ({
-            id: "run_12345678",
-            agentId: "agent_12345678",
-            status: "blocked",
-            costCny: 0.09,
-            steps: [
-              { id: "step_input", type: "trigger", title: "用户输入", status: "success", latencyMs: 18 },
-              {
-                id: "step_tool_health",
-                type: "tool",
-                title: "检查工具健康状态",
-                status: "failed",
-                latencyMs: 42,
-                errorMessage: "create_ticket degraded"
-              }
-            ]
-          })
+          json: async () => createdAgent
         };
+      }
+
+      return {
+        ok: true,
+        json: async () => existingAgents
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AgentStudioPage />, { wrapper: createWrapper() });
+
+    fireEvent.change(await screen.findByLabelText("智能体名称"), { target: { value: "订单查询助手" } });
+    fireEvent.change(screen.getByLabelText("应用场景"), { target: { value: "订单状态查询" } });
+    fireEvent.change(screen.getByLabelText("模型策略"), { target: { value: "gpt-4.1-mini + strict citation" } });
+    fireEvent.click(screen.getByRole("button", { name: "创建智能体" }));
+
+    await waitFor(() => expect(screen.getByText("已创建智能体：订单查询助手")).toBeInTheDocument());
+    expect(screen.getByText("flow_agent-order")).toBeInTheDocument();
+    expect(screen.getAllByText("草稿").length).toBeGreaterThan(0);
+    expect(JSON.parse(String(fetchMock.mock.calls.find((call) => call[1]?.method === "POST")?.[1]?.body))).toEqual({
+      name: "订单查询助手",
+      scenario: "订单状态查询",
+      modelPolicy: "gpt-4.1-mini + strict citation"
+    });
+  });
+
+  it("点击资产表中的查看后切换当前智能体详情", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => existingAgents
       })
     );
 
     render(<AgentStudioPage />, { wrapper: createWrapper() });
 
-    fireEvent.click(screen.getByRole("button", { name: "创建草稿 Agent" }));
-    await waitFor(() => expect(screen.getByText("已创建草稿：售后政策助手")).toBeInTheDocument());
+    fireEvent.click(await screen.findByRole("button", { name: "查看 合同审阅助手" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "试运行" }));
-
-    await waitFor(() => expect(screen.getByText("最新运行：run_12345678")).toBeInTheDocument());
-    expect(screen.getByText("失败步骤：检查工具健康状态")).toBeInTheDocument();
+    expect(screen.getByText("当前智能体：合同审阅助手")).toBeInTheDocument();
+    expect(screen.getByText("workflow-contract")).toBeInTheDocument();
+    expect(screen.getByText("就绪")).toBeInTheDocument();
   });
 });
