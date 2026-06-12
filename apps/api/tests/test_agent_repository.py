@@ -24,6 +24,20 @@ def test_create_agent_draft_uses_submitted_model_policy():
     assert agent.model_policy == "gpt-4.1-mini + strict citation"
 
 
+def test_create_agent_draft_uses_python_model_policy_field_name():
+    repo = AgentRepository()
+
+    agent = repo.create(
+        AgentCreate(
+            name="鍞悗鏀跨瓥鍔╂墜",
+            scenario="鍞悗闂瓟",
+            model_policy="gpt-4.1-mini + internal policy",
+        )
+    )
+
+    assert agent.model_policy == "gpt-4.1-mini + internal policy"
+
+
 def test_create_agent_draft_keeps_default_model_policy_for_legacy_payloads():
     repo = AgentRepository()
 
