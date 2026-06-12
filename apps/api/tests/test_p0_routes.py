@@ -6,14 +6,25 @@ from app.main import app
 def test_create_and_list_agents():
     client = TestClient(app)
 
-    created = client.post("/api/agents", json={"name": "售后政策助手", "scenario": "售后问答"})
+    created = client.post(
+        "/api/agents",
+        json={
+            "name": "售后政策助手",
+            "scenario": "售后问答",
+            "modelPolicy": "gpt-4.1-mini + strict citation",
+        },
+    )
     assert created.status_code == 201
     created_body = created.json()
+    assert created_body["name"] == "售后政策助手"
+    assert created_body["modelPolicy"] == "gpt-4.1-mini + strict citation"
+    assert created_body["status"] == "draft"
 
     listed = client.get("/api/agents")
     assert listed.status_code == 200
     agent = next(item for item in listed.json() if item["id"] == created_body["id"])
     assert agent["name"] == "售后政策助手"
+    assert agent["modelPolicy"] == "gpt-4.1-mini + strict citation"
 
 
 def test_release_gate_returns_blocked_reason():
