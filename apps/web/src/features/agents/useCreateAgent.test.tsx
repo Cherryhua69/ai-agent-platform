@@ -19,7 +19,7 @@ describe("useCreateAgent", () => {
     vi.unstubAllGlobals();
   });
 
-  it("调用真实 API 创建 Agent 并返回前端字段", async () => {
+  it("调用创建接口时提交名称、场景和模型策略，不提交负责人", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -28,7 +28,7 @@ describe("useCreateAgent", () => {
         scenario: "售后问答",
         owner: "陈晓",
         status: "draft",
-        modelPolicy: "gpt-4.1 + fallback",
+        modelPolicy: "gpt-4.1-mini + strict citation",
         workflowId: "flow_agent_12345678",
         knowledgeBaseIds: ["kb-after-sale", "kb-warranty"],
         toolIds: ["tool-ticket", "tool-order"]
@@ -39,16 +39,25 @@ describe("useCreateAgent", () => {
     const { result } = renderHook(() => useCreateAgent(), { wrapper: createWrapper() });
 
     act(() => {
-      result.current.mutate({ name: "售后政策助手", scenario: "售后问答" });
+      result.current.mutate({
+        name: "售后政策助手",
+        scenario: "售后问答",
+        modelPolicy: "gpt-4.1-mini + strict citation"
+      });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(fetchMock).toHaveBeenCalledWith("/api/agents", {
-      body: JSON.stringify({ name: "售后政策助手", scenario: "售后问答" }),
+      body: JSON.stringify({
+        name: "售后政策助手",
+        scenario: "售后问答",
+        modelPolicy: "gpt-4.1-mini + strict citation"
+      }),
       headers: { "Content-Type": "application/json" },
       method: "POST"
     });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).not.toHaveProperty("owner");
     expect(result.current.data?.workflowId).toBe("flow_agent_12345678");
   });
 });

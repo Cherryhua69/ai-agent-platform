@@ -2,9 +2,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { postJson } from "../../lib/api/client";
 import type { Agent } from "../../types/domain";
 
-type CreateAgentPayload = {
+export type CreateAgentPayload = {
   name: string;
   scenario: string;
+  modelPolicy: string;
 };
 
 export function useCreateAgent() {
