@@ -44,7 +44,7 @@ export type KnowledgeBase = {
 export type Tool = {
   id: string;
   name: string;
-  type: "mcp" | "api" | "trigger";
+  type: "mcp" | "api" | "model-api" | "trigger";
   credential: string;
   permission: string;
   health: HealthStatus;

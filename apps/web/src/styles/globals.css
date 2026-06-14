@@ -176,6 +176,7 @@ textarea:focus-visible {
 }
 
 .main-shell {
+  position: relative;
   min-width: 0;
   min-height: 0;
   border: 1px solid rgba(255, 255, 255, 0.58);
@@ -189,6 +190,7 @@ textarea:focus-visible {
 }
 
 .content-shell {
+  position: relative;
   min-width: 0;
   height: 100%;
   min-height: 0;
@@ -311,6 +313,47 @@ textarea:focus-visible {
 .btn.primary:hover,
 .page-actions button.primary:hover {
   background: #262131;
+}
+
+.tool-category-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.14);
+}
+
+.tool-category-tabs button {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: #374151;
+  padding: 0 22px 14px;
+  font-size: 18px;
+  font-weight: 500;
+  transition:
+    color 180ms ease,
+    border-color 180ms ease;
+}
+
+.tool-category-tabs button.active {
+  border-color: #5b36bd;
+  color: #050505;
+  font-weight: 700;
+}
+
+.tool-category-tabs span {
+  min-width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #ece8ff;
+  color: #5b36bd;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .view-stack,
@@ -530,6 +573,20 @@ tr.selected td {
   background: rgba(222, 218, 248, 0.52);
 }
 
+.table-action {
+  min-height: 32px;
+  border-radius: 999px;
+  background: rgba(47, 42, 58, 0.08);
+  color: var(--text);
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.table-action:hover {
+  background: rgba(47, 42, 58, 0.14);
+}
+
 .kv-list {
   display: grid;
   gap: 8px;
@@ -582,6 +639,7 @@ tr.selected td {
   font-weight: 700;
 }
 
+.field-stack input,
 .field-stack select,
 .field-stack textarea {
   width: 100%;
@@ -605,6 +663,111 @@ tr.selected td {
   color: var(--text);
   font-size: 13px;
   font-weight: 600;
+}
+
+.check-row input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand);
+}
+
+.tool-type-picker {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.tool-type-picker button {
+  min-height: 40px;
+  border-radius: 999px;
+  background: rgba(47, 42, 58, 0.08);
+  color: var(--text);
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 650;
+  transition:
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.tool-type-picker button.active {
+  background: #2f2a3a;
+  color: #fff;
+}
+
+.tool-form {
+  display: grid;
+  gap: 4px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 34px;
+  background: rgba(20, 18, 28, 0.34);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.modal-panel {
+  width: min(680px, 100%);
+  max-height: calc(100vh - 124px);
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 28px 80px rgba(25, 22, 34, 0.26);
+  padding: 22px;
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.modal-head strong {
+  display: block;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.modal-head span {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.modal-close {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(47, 42, 58, 0.08);
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  background: rgba(47, 42, 58, 0.14);
 }
 
 .run-output {
@@ -812,6 +975,7 @@ pre {
   }
 
   .content-shell {
+    position: relative;
     padding: 24px;
   }
 
@@ -884,6 +1048,15 @@ pre {
     height: auto;
     overflow: visible;
     padding: 18px;
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    padding: 18px;
+  }
+
+  .modal-panel {
+    max-height: calc(100vh - 36px);
   }
 
   .dashboard-page {

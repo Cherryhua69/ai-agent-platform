@@ -4,7 +4,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.modules.model_provider.models import ModelProviderModel
-from app.modules.model_provider.schemas import ModelProviderCreate, ModelProviderRead
+from app.modules.model_provider.schemas import ModelProviderCreate, ModelProviderRead, ModelProviderUpdate
 
 
 class ModelProviderRepository:
@@ -20,7 +20,7 @@ class ModelProviderRepository:
             base_url=payload.base_url,
             model_name=payload.model,
             api_key=payload.api_key,
-            status="online",
+            status="guarded",
             is_default=payload.is_default,
         )
 
@@ -46,6 +46,28 @@ class ModelProviderRepository:
 
         return [self._to_read_model(provider) for provider in self._providers.values()]
 
+    def update(self, provider_id: str, payload: ModelProviderUpdate) -> ModelProviderRead | None:
+        if self._session_factory:
+            with self._session_factory() as session:
+                provider = session.get(ModelProviderModel, provider_id)
+                if provider is None:
+                    return None
+                if payload.is_default:
+                    session.execute(update(ModelProviderModel).where(ModelProviderModel.id != provider_id).values(is_default=False))
+                self._apply_update(provider, payload)
+                session.commit()
+            return self._to_read_model(provider)
+
+        provider = self._providers.get(provider_id)
+        if provider is None:
+            return None
+        if payload.is_default:
+            for existing_id, existing in self._providers.items():
+                if existing_id != provider_id:
+                    existing.is_default = False
+        self._apply_update(provider, payload)
+        return self._to_read_model(provider)
+
     def get(self, provider_id: str | None = None) -> ModelProviderModel | None:
         if self._session_factory:
             with self._session_factory() as session:
@@ -56,6 +78,22 @@ class ModelProviderRepository:
         if provider_id:
             return self._providers.get(provider_id)
         return next((provider for provider in self._providers.values() if provider.is_default), None)
+
+    def set_status(self, provider_id: str, status: str) -> ModelProviderRead | None:
+        if self._session_factory:
+            with self._session_factory() as session:
+                provider = session.get(ModelProviderModel, provider_id)
+                if provider is None:
+                    return None
+                provider.status = status
+                session.commit()
+            return self._to_read_model(provider)
+
+        provider = self._providers.get(provider_id)
+        if provider is None:
+            return None
+        provider.status = status
+        return self._to_read_model(provider)
 
     def _to_read_model(self, provider: ModelProviderModel) -> ModelProviderRead:
         return ModelProviderRead(
@@ -73,3 +111,12 @@ class ModelProviderRepository:
         if len(api_key) < 7:
             return "***"
         return f"{api_key[:3]}...{api_key[-4:]}"
+
+    def _apply_update(self, provider: ModelProviderModel, payload: ModelProviderUpdate) -> None:
+        provider.name = payload.name
+        provider.provider_type = payload.provider_type
+        provider.base_url = payload.base_url
+        provider.model_name = payload.model
+        if payload.api_key:
+            provider.api_key = payload.api_key
+        provider.is_default = payload.is_default
