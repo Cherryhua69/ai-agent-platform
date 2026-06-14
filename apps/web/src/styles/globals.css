@@ -17,6 +17,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow: hidden;
 }
 
 button,
@@ -58,9 +59,10 @@ textarea:focus-visible {
 .app-shell {
   display: grid;
   grid-template-columns: 112px minmax(0, 1fr);
-  min-height: 100vh;
+  height: 100vh;
   padding: 28px;
   gap: 24px;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -171,6 +173,7 @@ textarea:focus-visible {
 
 .main-shell {
   min-width: 0;
+  min-height: 0;
   border: 1px solid rgba(255, 255, 255, 0.58);
   border-radius: 38px;
   background:
@@ -183,11 +186,47 @@ textarea:focus-visible {
 
 .content-shell {
   min-width: 0;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
   padding: 34px;
 }
 
 .view-page {
   min-width: 0;
+}
+
+.dashboard-page {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.dashboard-page .view-stack {
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.dashboard-page .metrics-grid,
+.dashboard-page .grid-two {
+  min-height: 0;
+}
+
+.dashboard-page .grid-two {
+  overflow: hidden;
+}
+
+.dashboard-page .panel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dashboard-page .panel-body {
+  min-height: 0;
+  overflow: auto;
 }
 
 .page-header {
@@ -787,8 +826,14 @@ pre {
 }
 
 @media (max-width: 760px) {
+  body {
+    overflow: auto;
+  }
+
   .app-shell {
     display: block;
+    height: auto;
+    overflow: visible;
     padding: 12px;
   }
 
@@ -827,7 +872,24 @@ pre {
   }
 
   .content-shell {
+    height: auto;
+    overflow: visible;
     padding: 18px;
+  }
+
+  .dashboard-page {
+    height: auto;
+    display: block;
+  }
+
+  .dashboard-page .view-stack,
+  .dashboard-page .grid-two {
+    overflow: visible;
+  }
+
+  .dashboard-page .panel,
+  .dashboard-page .panel-body {
+    overflow: visible;
   }
 
   .page-header {

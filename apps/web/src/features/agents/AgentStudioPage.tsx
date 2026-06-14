@@ -1,4 +1,3 @@
-import { useRef, useState } from "react";
 import { useCanvasConfig } from "../workflows/useCanvasConfig";
 import { KeyValueList, PageScaffold, Panel, SimpleTable, StatusPill } from "../shared/ViewBlocks";
 import { useAgents } from "./useAgents";
@@ -9,8 +8,6 @@ const steps = ["基础信息", "模型与 Prompt", "知识与变量", "工具与
 export function AgentStudioPage() {
   const agentsQuery = useAgents();
   const createAgent = useCreateAgent();
-  const detailRef = useRef<HTMLDivElement | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
   const { modelProviderId, knowledgeBaseIds, userInput, latestRun } = useCanvasConfig();
 
   const agents = agentsQuery.data ?? [];
@@ -25,31 +22,19 @@ export function AgentStudioPage() {
     });
   }
 
-  function handleViewDetails() {
-    setShowDetails(true);
-    window.requestAnimationFrame(() => {
-      detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }
-
   return (
     <PageScaffold
-      eyebrow="构建 / Agent Studio"
-      title="Agent Studio"
-      description="覆盖 Agent 创建向导、模型与 Prompt、知识与变量、工具与 MCP、评测集和发布策略。运行调试在工作流画布中完成，结果会同步展示在这里。"
+      eyebrow="构建 / 智能体"
+      title="智能体"
+      description="创建、检查和管理智能体。模型 API、知识库和调用需求在工作流画布中配置，运行结果会同步展示在这里。"
       actions={
-        <>
-          <button className="btn" onClick={handleViewDetails} type="button">
-            查看详情
-          </button>
-          <button className="btn primary" disabled={createAgent.isPending} onClick={handleCreateAgent} type="button">
-            {createAgent.isPending ? "创建中..." : "创建智能体"}
-          </button>
-        </>
+        <button className="btn primary" disabled={createAgent.isPending} onClick={handleCreateAgent} type="button">
+          {createAgent.isPending ? "创建中..." : "创建智能体"}
+        </button>
       }
     >
       <div className="grid-two">
-        <Panel title="创建向导" strong>
+        <Panel title="创建流程" strong>
           <div className="wizard-list">
             {steps.map((step, index) => (
               <div className={index === 0 ? "wizard-step active" : "wizard-step"} key={step}>
@@ -59,7 +44,7 @@ export function AgentStudioPage() {
             ))}
           </div>
         </Panel>
-        <Panel title="当前草稿资产">
+        <Panel title="当前草稿">
           <KeyValueList
             items={[
               ["Agent", primaryAgent?.name ?? "售后政策助手"],
@@ -108,22 +93,6 @@ export function AgentStudioPage() {
           ])}
         />
       </Panel>
-      {showDetails || primaryAgent ? (
-        <div ref={detailRef}>
-          <Panel title="智能体详情">
-            <KeyValueList
-              items={[
-                ["Agent ID", primaryAgent?.id ?? "agent-after-sale"],
-                ["负责人", primaryAgent?.owner ?? "陈晓"],
-                ["状态", primaryAgent?.status ?? "draft"],
-                ["绑定模型", modelProviderId || primaryAgent?.modelPolicy || "未选择"],
-                ["绑定知识库", knowledgeBaseIds.length ? knowledgeBaseIds.join(" / ") : "未选择"],
-                ["工具数量", String(primaryAgent?.toolIds.length ?? 0)]
-              ]}
-            />
-          </Panel>
-        </div>
-      ) : null}
     </PageScaffold>
   );
 }

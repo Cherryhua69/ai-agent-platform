@@ -39,7 +39,7 @@ describe("AgentStudioPage", () => {
     });
   });
 
-  it("keeps create agent and view details actions without restoring try-run", async () => {
+  it("keeps only the create agent action", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -50,14 +50,10 @@ describe("AgentStudioPage", () => {
 
     render(<AgentStudioPage />, { wrapper: createWrapper() });
 
-    expect(await screen.findByRole("heading", { name: "Agent Studio" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "智能体" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创建智能体" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "查看详情" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "查看详情" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "试运行" })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "查看详情" }));
-    expect(screen.getByText("智能体详情")).toBeInTheDocument();
-    expect(screen.getByText("agent-after-sale")).toBeInTheDocument();
   });
 
   it("can create an agent from the top-level action", async () => {
