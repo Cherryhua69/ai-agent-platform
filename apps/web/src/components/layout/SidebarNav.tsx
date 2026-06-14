@@ -1,4 +1,5 @@
 import { Boxes, BrainCircuit, Gauge, GitBranch, Library, Rocket, ScrollText, Store } from "lucide-react";
+import { logoUrl } from "../../assets/brand";
 
 export type ViewId = "dashboard" | "agents" | "workflow" | "knowledge" | "tools" | "runs" | "release" | "market";
 
@@ -31,7 +32,7 @@ export function SidebarNav({ activeView, onNavigate }: SidebarNavProps) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <span className="brand-mark" aria-hidden="true" />
+        <img className="brand-mark" src={logoUrl} alt="AI Agent" />
         <div>
           <strong>AI Agent</strong>
           <span>轻量控制台</span>
