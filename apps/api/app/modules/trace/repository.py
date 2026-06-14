@@ -20,6 +20,7 @@ class TraceRepository:
                     agent_id=payload.agent_id,
                     status=payload.status,
                     cost_cny=payload.cost_cny,
+                    final_output=payload.final_output,
                 )
             )
             for index, step in enumerate(payload.steps):
@@ -62,6 +63,7 @@ class TraceRepository:
             agentId=run.agent_id,
             status=run.status,
             costCny=run.cost_cny,
+            finalOutput=run.final_output,
             steps=[
                 TraceStepRead(
                     id=step.id,
@@ -83,6 +85,7 @@ class TraceRepository:
             agentId="agent-after-sale",
             status="blocked",
             costCny=0.09,
+            finalOutput=None,
             steps=[
                 TraceStepRead(
                     id="step_input",

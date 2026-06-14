@@ -17,6 +17,7 @@ class RunModel(Base):
     agent_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     cost_cny: Mapped[float] = mapped_column(Float, nullable=False)
+    final_output: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
 

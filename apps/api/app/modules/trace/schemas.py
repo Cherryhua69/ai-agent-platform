@@ -21,6 +21,7 @@ class RunTraceRead(BaseModel):
     agent_id: str = Field(alias="agentId")
     status: str
     cost_cny: float = Field(alias="costCny")
+    final_output: str | None = Field(default=None, alias="finalOutput")
     steps: list[TraceStepRead] = Field(default_factory=list)
 
 

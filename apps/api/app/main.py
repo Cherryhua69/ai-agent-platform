@@ -5,9 +5,11 @@ from app.core.database import init_database
 from app.modules.agent.router import router as agent_router
 from app.modules.evaluation.router import router as evaluation_router
 from app.modules.knowledge.router import router as knowledge_router
+from app.modules.model_provider.router import router as model_provider_router
 from app.modules.release.router import router as release_router
 from app.modules.tool.router import router as tool_router
 from app.modules.trace.router import router as trace_router
+from app.modules.workflow.router import router as workflow_router
 
 init_database()
 
@@ -33,9 +35,11 @@ app.add_middleware(
 app.include_router(agent_router)
 app.include_router(evaluation_router)
 app.include_router(knowledge_router)
+app.include_router(model_provider_router)
 app.include_router(release_router)
 app.include_router(tool_router)
 app.include_router(trace_router)
+app.include_router(workflow_router)
 
 
 @app.get("/health")

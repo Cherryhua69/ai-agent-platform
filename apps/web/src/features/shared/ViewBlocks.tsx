@@ -1,16 +1,18 @@
 import { PageHeader } from "../../components/layout/PageHeader";
 
 type PageScaffoldProps = {
+  eyebrow?: string;
   title: string;
   description: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
 };
 
-export function PageScaffold({ title, description, actions, children }: PageScaffoldProps) {
+export function PageScaffold({ eyebrow, title, description, actions, children }: PageScaffoldProps) {
   return (
     <article className="view-page">
       <PageHeader title={title} description={description} actions={actions} />
+      {eyebrow ? <p className="page-eyebrow">{eyebrow}</p> : null}
       <div className="view-stack">{children}</div>
     </article>
   );

@@ -48,6 +48,7 @@ export function SidebarNav({ activeView, onNavigate }: SidebarNavProps) {
 
                 return (
                   <button
+                    aria-label={item.label}
                     key={item.id}
                     className={item.id === activeView ? "active" : ""}
                     onClick={() => onNavigate(item.id)}

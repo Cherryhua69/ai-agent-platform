@@ -51,6 +51,17 @@ export type Tool = {
   lastCalledAt: string;
 };
 
+export type ModelProvider = {
+  id: string;
+  name: string;
+  providerType: "openai-compatible" | string;
+  baseUrl: string;
+  model: string;
+  apiKeyPreview: string;
+  status: HealthStatus;
+  isDefault: boolean;
+};
+
 export type ReleaseGate = {
   id: string;
   agentId: string;
@@ -76,6 +87,7 @@ export type RunTrace = {
   agentId: string;
   status: TraceStepStatus;
   costCny: number;
+  finalOutput?: string;
   steps: TraceStep[];
 };
 

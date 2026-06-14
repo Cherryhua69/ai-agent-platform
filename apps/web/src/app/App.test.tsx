@@ -6,7 +6,7 @@ import { AppProviders } from "./providers";
 
 const viewCases = [
   ["总览", "总览"],
-  ["智能体", "智能体"],
+  ["智能体", "Agent Studio"],
   ["工作流", "工作流"],
   ["知识库", "知识库"],
   ["工具", "工具"],
