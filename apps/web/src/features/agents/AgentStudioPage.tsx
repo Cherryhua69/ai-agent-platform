@@ -1,21 +1,52 @@
+import { useRef, useState } from "react";
 import { useCanvasConfig } from "../workflows/useCanvasConfig";
 import { KeyValueList, PageScaffold, Panel, SimpleTable, StatusPill } from "../shared/ViewBlocks";
 import { useAgents } from "./useAgents";
+import { useCreateAgent } from "./useCreateAgent";
 
 const steps = ["基础信息", "模型与 Prompt", "知识与变量", "工具与 MCP", "评测集", "发布策略"];
 
 export function AgentStudioPage() {
   const agentsQuery = useAgents();
-  const agents = agentsQuery.data ?? [];
+  const createAgent = useCreateAgent();
+  const detailRef = useRef<HTMLDivElement | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
   const { modelProviderId, knowledgeBaseIds, userInput, latestRun } = useCanvasConfig();
+
+  const agents = agentsQuery.data ?? [];
+  const createdAgent = createAgent.data;
+  const primaryAgent = createdAgent ?? agents[0];
   const failedStep = latestRun?.steps.find((step) => step.status === "failed");
-  const primaryAgent = agents[0];
+
+  function handleCreateAgent() {
+    createAgent.mutate({
+      name: "售后政策助手",
+      scenario: "售后问答与工单分流"
+    });
+  }
+
+  function handleViewDetails() {
+    setShowDetails(true);
+    window.requestAnimationFrame(() => {
+      detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 
   return (
     <PageScaffold
       eyebrow="构建 / Agent Studio"
       title="Agent Studio"
       description="覆盖 Agent 创建向导、模型与 Prompt、知识与变量、工具与 MCP、评测集和发布策略。运行调试在工作流画布中完成，结果会同步展示在这里。"
+      actions={
+        <>
+          <button className="btn" onClick={handleViewDetails} type="button">
+            查看详情
+          </button>
+          <button className="btn primary" disabled={createAgent.isPending} onClick={handleCreateAgent} type="button">
+            {createAgent.isPending ? "创建中..." : "创建智能体"}
+          </button>
+        </>
+      }
     >
       <div className="grid-two">
         <Panel title="创建向导" strong>
@@ -40,6 +71,13 @@ export function AgentStudioPage() {
               ["Trace 成本", latestRun ? `¥${latestRun.costCny.toFixed(2)}` : "未产生"]
             ]}
           />
+          {createdAgent ? (
+            <p className="inline-success">
+              已创建智能体：{createdAgent.name}
+              <br />
+              <span>{createdAgent.workflowId}</span>
+            </p>
+          ) : null}
           {latestRun ? (
             <p className="inline-success">
               最新运行：{latestRun.id}
@@ -53,6 +91,7 @@ export function AgentStudioPage() {
               <p>{latestRun.finalOutput}</p>
             </div>
           ) : null}
+          {createAgent.isError ? <p className="inline-error">创建失败，请检查 API 服务。</p> : null}
         </Panel>
       </div>
       <Panel title="智能体资产">
@@ -69,6 +108,22 @@ export function AgentStudioPage() {
           ])}
         />
       </Panel>
+      {showDetails || primaryAgent ? (
+        <div ref={detailRef}>
+          <Panel title="智能体详情">
+            <KeyValueList
+              items={[
+                ["Agent ID", primaryAgent?.id ?? "agent-after-sale"],
+                ["负责人", primaryAgent?.owner ?? "陈晓"],
+                ["状态", primaryAgent?.status ?? "draft"],
+                ["绑定模型", modelProviderId || primaryAgent?.modelPolicy || "未选择"],
+                ["绑定知识库", knowledgeBaseIds.length ? knowledgeBaseIds.join(" / ") : "未选择"],
+                ["工具数量", String(primaryAgent?.toolIds.length ?? 0)]
+              ]}
+            />
+          </Panel>
+        </div>
+      ) : null}
     </PageScaffold>
   );
 }

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useCanvasConfig } from "../workflows/useCanvasConfig";
@@ -15,6 +15,18 @@ function createWrapper() {
   };
 }
 
+const listedAgent = {
+  id: "agent-after-sale",
+  name: "售后政策助手",
+  scenario: "订单售后、退款和质保政策问答",
+  owner: "陈晓",
+  status: "blocked",
+  modelPolicy: "gpt-4.1 + fallback",
+  workflowId: "workflow-after-sale",
+  knowledgeBaseIds: ["kb-after-sale", "kb-warranty"],
+  toolIds: ["tool-create-ticket"]
+};
+
 describe("AgentStudioPage", () => {
   afterEach(() => {
     cleanup();
@@ -27,34 +39,56 @@ describe("AgentStudioPage", () => {
     });
   });
 
-  it("matches the branch Agent Studio view without local action buttons", async () => {
+  it("keeps create agent and view details actions without restoring try-run", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => [
-          {
-            id: "agent-after-sale",
-            name: "售后政策助手",
-            scenario: "订单售后、退款和质保政策问答",
-            owner: "陈晓",
-            status: "blocked",
-            modelPolicy: "gpt-4.1 + fallback",
-            workflowId: "workflow-after-sale",
-            knowledgeBaseIds: ["kb-after-sale", "kb-warranty"],
-            toolIds: ["tool-create-ticket"]
-          }
-        ]
+        json: async () => [listedAgent]
       })
     );
 
     render(<AgentStudioPage />, { wrapper: createWrapper() });
 
     expect(await screen.findByRole("heading", { name: "Agent Studio" })).toBeInTheDocument();
-    expect(screen.getByText("构建 / Agent Studio")).toBeInTheDocument();
-    expect(screen.getByText("售后政策助手")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "创建智能体" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看详情" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "试运行" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "创建草稿 Agent" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "查看详情" }));
+    expect(screen.getByText("智能体详情")).toBeInTheDocument();
+    expect(screen.getByText("agent-after-sale")).toBeInTheDocument();
+  });
+
+  it("can create an agent from the top-level action", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === "POST" && String(input).endsWith("/api/agents")) {
+          return {
+            ok: true,
+            json: async () => ({
+              ...listedAgent,
+              id: "agent_12345678",
+              status: "draft",
+              workflowId: "flow_agent_12345678"
+            })
+          };
+        }
+
+        return {
+          ok: true,
+          json: async () => [listedAgent]
+        };
+      })
+    );
+
+    render(<AgentStudioPage />, { wrapper: createWrapper() });
+
+    fireEvent.click(await screen.findByRole("button", { name: "创建智能体" }));
+
+    await waitFor(() => expect(screen.getByText("已创建智能体：售后政策助手")).toBeInTheDocument());
+    expect(screen.getAllByText("flow_agent_12345678").length).toBeGreaterThan(0);
   });
 
   it("shows the latest canvas run result when workflow debug has produced output", async () => {
