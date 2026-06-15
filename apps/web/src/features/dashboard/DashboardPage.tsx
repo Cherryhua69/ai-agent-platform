@@ -15,7 +15,7 @@ export function DashboardPage() {
   const hasDegradedTool = workflows.some((workflow) => workflow.toolHealthStatus === "degraded");
 
   return (
-    <PageScaffold title="总览" description="用最少的信息确认平台是否可发布、哪里被阻断、下一步该处理什么。">
+    <PageScaffold className="dashboard-page" title="总览" description="用最少的信息确认平台是否可发布、哪里被阻断、下一步该处理什么。">
       <div className="metrics-grid">
         <MetricCard label="智能体" value={String(agents.length || 2)} detail="当前项目资产" tone="blue" bars={[48, 56, 62, 74, 66]} />
         <MetricCard label="运行成功率" value="94%" detail="近 24 小时" tone="mint" bars={[62, 70, 68, 78, 82]} />

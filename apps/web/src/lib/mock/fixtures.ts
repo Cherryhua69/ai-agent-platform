@@ -1,4 +1,4 @@
-import type { Agent, KnowledgeBase, ReleaseGate, RunTrace, Tool, Workflow } from "../../types/domain";
+import type { Agent, KnowledgeBase, ModelProvider, ReleaseGate, RunTrace, Tool, Workflow } from "../../types/domain";
 
 export const agents: Agent[] = [
   {
@@ -93,6 +93,19 @@ export const tools: Tool[] = [
   }
 ];
 
+export const modelProviders: ModelProvider[] = [
+  {
+    id: "model_provider_local",
+    name: "Canvas demo model",
+    providerType: "openai-compatible",
+    baseUrl: "mock://local",
+    model: "local-smoke",
+    apiKeyPreview: "sk-...ocal",
+    status: "online",
+    isDefault: true
+  }
+];
+
 export const releaseGates: ReleaseGate[] = [
   {
     id: "gate-after-sale",
@@ -106,8 +119,9 @@ export const releaseGates: ReleaseGate[] = [
 export const runTrace: RunTrace = {
   id: "run_8f23",
   agentId: "agent-after-sale",
-  status: "failed",
+  status: "success",
   costCny: 0.06,
+  finalOutput: "[local-smoke] 售后政策助手已根据知识库生成答复。",
   steps: [
     {
       id: "step-input",
@@ -157,6 +171,7 @@ export const fixtures = {
   workflows,
   knowledgeBases,
   tools,
+  modelProviders,
   releaseGates,
   runTrace
 };

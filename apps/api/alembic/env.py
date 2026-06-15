@@ -9,6 +9,7 @@ from app.modules.agent.models import AgentModel  # noqa: F401
 from app.modules.audit.models import AuditLogModel  # noqa: F401
 from app.modules.evaluation.models import EvaluationCaseModel, EvaluationDatasetModel, EvaluationRunModel  # noqa: F401
 from app.modules.knowledge.models import KnowledgeBaseModel, KnowledgeDocumentModel  # noqa: F401
+from app.modules.model_provider.models import ModelProviderModel  # noqa: F401
 from app.modules.tool.models import McpServerModel, ToolModel  # noqa: F401
 from app.modules.trace.models import RunModel, TraceStepModel  # noqa: F401
 

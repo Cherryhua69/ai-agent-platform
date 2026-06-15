@@ -12,7 +12,7 @@ class Base(DeclarativeBase):
 connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
 pool_options = {"poolclass": StaticPool} if settings.database_url == "sqlite+pysqlite:///:memory:" else {}
 engine = create_engine(settings.database_url, connect_args=connect_args, **pool_options)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
 
 def init_database() -> None:

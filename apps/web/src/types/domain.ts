@@ -44,11 +44,22 @@ export type KnowledgeBase = {
 export type Tool = {
   id: string;
   name: string;
-  type: "mcp" | "api" | "trigger";
+  type: "mcp" | "api" | "model-api" | "trigger";
   credential: string;
   permission: string;
   health: HealthStatus;
   lastCalledAt: string;
+};
+
+export type ModelProvider = {
+  id: string;
+  name: string;
+  providerType: "openai-compatible" | string;
+  baseUrl: string;
+  model: string;
+  apiKeyPreview: string;
+  status: HealthStatus;
+  isDefault: boolean;
 };
 
 export type ReleaseGate = {
@@ -76,6 +87,7 @@ export type RunTrace = {
   agentId: string;
   status: TraceStepStatus;
   costCny: number;
+  finalOutput?: string;
   steps: TraceStep[];
 };
 
