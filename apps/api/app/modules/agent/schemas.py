@@ -3,7 +3,12 @@ from pydantic import BaseModel, Field
 
 class AgentCreate(BaseModel):
     name: str = Field(min_length=1)
-    scenario: str = Field(min_length=1)
+    scenario: str = ""
+
+
+class AgentUpdate(BaseModel):
+    name: str = Field(min_length=1)
+    scenario: str = ""
 
 
 class AgentRead(BaseModel):

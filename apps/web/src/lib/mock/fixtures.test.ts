@@ -5,6 +5,7 @@ describe("mock fixtures", () => {
   it("覆盖 MVP 主闭环资源", () => {
     expect(agents).toHaveLength(2);
     expect(workflows).toHaveLength(1);
+    expect(workflows[0].nodes.map((node) => node.id)).toEqual(["node-trigger"]);
     expect(knowledgeBases).toHaveLength(2);
     expect(tools).toHaveLength(3);
     expect(releaseGates[0].status).toBe("blocked");

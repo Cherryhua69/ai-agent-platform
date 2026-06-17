@@ -9,6 +9,7 @@ from app.modules.release.router import router as release_router
 from app.modules.tool.router import router as tool_router
 from app.modules.trace.router import router as trace_router
 from app.modules.workflow.router import router as workflow_router
+from app.modules.workflow.models import WorkflowModel  # noqa: F401
 from app.core.database import init_database
 
 init_database()

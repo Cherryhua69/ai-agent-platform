@@ -1,4 +1,4 @@
-import { Boxes, BrainCircuit, Gauge, GitBranch, Library, Rocket, ScrollText, Store } from "lucide-react";
+import { Boxes, BrainCircuit, Gauge, Library, Rocket, ScrollText, Store } from "lucide-react";
 import { logoUrl } from "../../assets/brand";
 
 export type ViewId = "dashboard" | "agents" | "workflow" | "knowledge" | "tools" | "runs" | "release" | "market";
@@ -13,7 +13,6 @@ type NavItem = {
 export const navItems: NavItem[] = [
   { id: "dashboard", label: "总览", group: "主控", icon: Gauge },
   { id: "agents", label: "智能体", group: "构建", icon: BrainCircuit },
-  { id: "workflow", label: "工作流", group: "构建", icon: GitBranch },
   { id: "knowledge", label: "知识库", group: "构建", icon: Library },
   { id: "tools", label: "工具", group: "构建", icon: Boxes },
   { id: "runs", label: "运行记录", group: "上线", icon: ScrollText },
@@ -35,7 +34,6 @@ export function SidebarNav({ activeView, onNavigate }: SidebarNavProps) {
         <img className="brand-mark" src={logoUrl} alt="AI Agent" />
         <div>
           <strong>AI Agent</strong>
-          <span>轻量控制台</span>
         </div>
       </div>
       <nav className="sidebar-nav" aria-label="主导航">

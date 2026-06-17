@@ -17,9 +17,35 @@ export type Agent = {
 
 export type WorkflowNode = {
   id: string;
-  type: "trigger" | "retrieval" | "llm" | "tool" | "human" | "expose";
+  type: "trigger" | "retrieval" | "llm" | "tool" | "human" | "expose" | "comment";
   name: string;
   status: TraceStepStatus;
+  description?: string;
+  position?: { x: number; y: number };
+  config?: Record<string, unknown>;
+};
+
+export type WorkflowInputField = {
+  id: string;
+  label: string;
+  variable: string;
+  kind: "text" | "file" | "file[]" | string;
+  required: boolean;
+  legacy?: boolean;
+};
+
+export type WorkflowEdge = {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+};
+
+export type WorkflowViewport = {
+  x: number;
+  y: number;
+  zoom: number;
 };
 
 export type Workflow = {
@@ -28,6 +54,8 @@ export type Workflow = {
   name: string;
   status: "draft" | "ready" | "blocked";
   nodes: WorkflowNode[];
+  edges?: WorkflowEdge[];
+  viewport?: WorkflowViewport;
   toolHealthStatus: HealthStatus;
 };
 

@@ -12,8 +12,8 @@ export function useCreateAgent() {
 
   return useMutation({
     mutationFn: (payload: CreateAgentPayload) => postJson<Agent, CreateAgentPayload>("/api/agents", payload),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["agents"] });
+    onSuccess: (createdAgent) => {
+      queryClient.setQueryData<Agent[]>(["agents"], (agents = []) => [createdAgent, ...agents.filter((agent) => agent.id !== createdAgent.id)]);
     }
   });
 }

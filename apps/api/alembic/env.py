@@ -12,6 +12,7 @@ from app.modules.knowledge.models import KnowledgeBaseModel, KnowledgeDocumentMo
 from app.modules.model_provider.models import ModelProviderModel  # noqa: F401
 from app.modules.tool.models import McpServerModel, ToolModel  # noqa: F401
 from app.modules.trace.models import RunModel, TraceStepModel  # noqa: F401
+from app.modules.workflow.models import WorkflowModel  # noqa: F401
 
 config = context.config
 

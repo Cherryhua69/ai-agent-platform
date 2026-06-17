@@ -5,6 +5,7 @@ from app.modules.evaluation.models import EvaluationCaseModel, EvaluationDataset
 from app.modules.knowledge.models import KnowledgeBaseModel, KnowledgeDocumentModel
 from app.modules.tool.models import McpServerModel, ToolModel
 from app.modules.trace.models import RunModel, TraceStepModel
+from app.modules.workflow.models import WorkflowModel
 
 
 def test_database_metadata_contains_core_tables():
@@ -19,6 +20,7 @@ def test_database_metadata_contains_core_tables():
     assert EvaluationRunModel.__tablename__ in Base.metadata.tables
     assert RunModel.__tablename__ in Base.metadata.tables
     assert TraceStepModel.__tablename__ in Base.metadata.tables
+    assert WorkflowModel.__tablename__ in Base.metadata.tables
     assert "agents" in Base.metadata.tables
     assert "audit_logs" in Base.metadata.tables
     assert "knowledge_bases" in Base.metadata.tables
@@ -30,3 +32,4 @@ def test_database_metadata_contains_core_tables():
     assert "evaluation_runs" in Base.metadata.tables
     assert "runs" in Base.metadata.tables
     assert "trace_steps" in Base.metadata.tables
+    assert "workflows" in Base.metadata.tables

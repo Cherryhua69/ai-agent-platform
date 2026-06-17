@@ -8,7 +8,6 @@ export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
     <div className="page-header">
       <div>
-        <p>AI Agent Platform</p>
         <h1>{title}</h1>
         <span>{description}</span>
       </div>

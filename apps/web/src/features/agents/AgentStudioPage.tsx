@@ -1,26 +1,136 @@
-import { useCanvasConfig } from "../workflows/useCanvasConfig";
-import { KeyValueList, PageScaffold, Panel, SimpleTable, StatusPill } from "../shared/ViewBlocks";
+import { type FormEvent, useState } from "react";
+import { createPortal } from "react-dom";
+import type { Agent } from "../../types/domain";
+import { PageScaffold, StatusPill } from "../shared/ViewBlocks";
 import { useAgents } from "./useAgents";
 import { useCreateAgent } from "./useCreateAgent";
+import { useDeleteAgent } from "./useDeleteAgent";
+import { useUpdateAgent } from "./useUpdateAgent";
 
-const steps = ["基础信息", "模型与 Prompt", "知识与变量", "工具与 MCP", "评测集", "发布策略"];
+type AgentDialogMode = "create" | "edit";
 
-export function AgentStudioPage() {
+type AgentStudioPageProps = {
+  onConfigureAgent?: (agent: Agent) => void;
+};
+
+function getAgentPublishLabel(status: string) {
+  return status === "published" ? "已发布" : "未发布";
+}
+
+export function AgentStudioPage({ onConfigureAgent }: AgentStudioPageProps) {
+  const [dialogMode, setDialogMode] = useState<AgentDialogMode>("create");
+  const [isAgentDialogOpen, setIsAgentDialogOpen] = useState(false);
+  const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
+  const [openMenuAgentId, setOpenMenuAgentId] = useState<string | null>(null);
+  const [agentName, setAgentName] = useState("");
+  const [agentDescription, setAgentDescription] = useState("");
   const agentsQuery = useAgents();
   const createAgent = useCreateAgent();
-  const { modelProviderId, knowledgeBaseIds, userInput, latestRun } = useCanvasConfig();
+  const updateAgent = useUpdateAgent();
+  const deleteAgent = useDeleteAgent();
 
   const agents = agentsQuery.data ?? [];
-  const createdAgent = createAgent.data;
-  const primaryAgent = createdAgent ?? agents[0];
-  const failedStep = latestRun?.steps.find((step) => step.status === "failed");
+  const visibleAgents = agents;
+  const portalTarget = typeof document === "undefined" ? null : document.querySelector(".main-shell");
+  const isSavingAgent = createAgent.isPending || updateAgent.isPending;
+  const agentSaveError = createAgent.isError || updateAgent.isError;
 
-  function handleCreateAgent() {
-    createAgent.mutate({
-      name: "售后政策助手",
-      scenario: "售后问答与工单分流"
-    });
+  function openCreateDialog() {
+    setDialogMode("create");
+    setEditingAgentId(null);
+    setAgentName("");
+    setAgentDescription("");
+    setIsAgentDialogOpen(true);
   }
+
+  function openEditDialog(agent: (typeof visibleAgents)[number]) {
+    setDialogMode("edit");
+    setEditingAgentId(agent.id);
+    setAgentName(agent.name);
+    setAgentDescription(agent.scenario);
+    setOpenMenuAgentId(null);
+    setIsAgentDialogOpen(true);
+  }
+
+  function closeDialog() {
+    setIsAgentDialogOpen(false);
+    setDialogMode("create");
+    setEditingAgentId(null);
+    setAgentName("");
+    setAgentDescription("");
+  }
+
+  function handleSubmitCreateAgent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = agentName.trim();
+
+    if (!name) {
+      return;
+    }
+
+    const payload = {
+      name,
+      scenario: agentDescription.trim()
+    };
+
+    if (dialogMode === "edit" && editingAgentId) {
+      updateAgent.mutate({ id: editingAgentId, ...payload }, { onSuccess: closeDialog });
+      return;
+    }
+
+    createAgent.mutate(payload, { onSuccess: closeDialog });
+  }
+
+  function handleDeleteAgent(agentId: string) {
+    setOpenMenuAgentId(null);
+    deleteAgent.mutate(agentId);
+  }
+
+  const agentDialogTitle = dialogMode === "edit" ? "编辑智能体" : "创建智能体";
+  const agentDialog = isAgentDialogOpen ? (
+    <div className="modal-backdrop" role="presentation">
+      <section className="modal-panel" role="dialog" aria-modal="true" aria-labelledby="agent-dialog-title">
+        <div className="modal-head">
+          <div>
+            <strong id="agent-dialog-title">{agentDialogTitle}</strong>
+            <span>{dialogMode === "edit" ? "修改智能体名称与描述，保存后会同步更新卡片。" : "填写基础信息后，会在智能体列表中生成一张新的智能体卡片。"}</span>
+          </div>
+          <button aria-label="关闭弹窗" className="modal-close" onClick={closeDialog} type="button">
+            ×
+          </button>
+        </div>
+        <form className="tool-form" onSubmit={handleSubmitCreateAgent}>
+          <label className="field-stack">
+            智能体名称
+            <input
+              onChange={(event) => setAgentName(event.target.value)}
+              placeholder="例如：退款审核助手"
+              required
+              value={agentName}
+            />
+          </label>
+          <label className="field-stack">
+            描述
+            <textarea
+              onChange={(event) => setAgentDescription(event.target.value)}
+              placeholder="可选，描述这个智能体负责的任务"
+              rows={4}
+              value={agentDescription}
+            />
+          </label>
+          {agentSaveError ? <p className="inline-error">保存失败，请检查 API 服务。</p> : null}
+          <div className="form-actions">
+            <button className="btn" onClick={closeDialog} type="button">
+              取消
+            </button>
+            <button className="btn primary" disabled={isSavingAgent || !agentName.trim()} type="submit">
+              {isSavingAgent ? "保存中..." : dialogMode === "edit" ? "保存修改" : "确认创建"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  ) : null;
 
   return (
     <PageScaffold
@@ -28,71 +138,66 @@ export function AgentStudioPage() {
       title="智能体"
       description="创建、检查和管理智能体。模型 API、知识库和调用需求在工作流画布中配置，运行结果会同步展示在这里。"
       actions={
-        <button className="btn primary" disabled={createAgent.isPending} onClick={handleCreateAgent} type="button">
-          {createAgent.isPending ? "创建中..." : "创建智能体"}
+        <button className="btn primary" onClick={openCreateDialog} type="button">
+          创建智能体
         </button>
       }
     >
-      <div className="grid-two">
-        <Panel title="创建流程" strong>
-          <div className="wizard-list">
-            {steps.map((step, index) => (
-              <div className={index === 0 ? "wizard-step active" : "wizard-step"} key={step}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <strong>{step}</strong>
+      {agentDialog ? (portalTarget ? createPortal(agentDialog, portalTarget) : agentDialog) : null}
+      {visibleAgents.length ? (
+        <div className="agent-card-grid">
+          {visibleAgents.map((agent) => (
+            <article
+              aria-label={agent.name}
+              className="agent-card"
+              key={agent.id}
+              onClick={() => onConfigureAgent?.(agent)}
+              tabIndex={onConfigureAgent ? 0 : undefined}
+              onKeyDown={(event) => {
+                if (!onConfigureAgent) {
+                  return;
+                }
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onConfigureAgent(agent);
+                }
+              }}
+            >
+              <div className="agent-card-head">
+                <strong>{agent.name}</strong>
+                <StatusPill tone={agent.status === "published" ? "ok" : "info"}>
+                  {getAgentPublishLabel(agent.status)}
+                </StatusPill>
               </div>
-            ))}
-          </div>
-        </Panel>
-        <Panel title="当前草稿">
-          <KeyValueList
-            items={[
-              ["Agent", primaryAgent?.name ?? "售后政策助手"],
-              ["模型配置", modelProviderId || "请先在工具页添加并在画布中选择"],
-              ["工作流", primaryAgent?.workflowId ?? "flow-after-sale"],
-              ["知识库", knowledgeBaseIds.length ? knowledgeBaseIds.join(" / ") : "未选择"],
-              ["调用需求", userInput],
-              ["最新运行", latestRun ? latestRun.id : "等待画布运行调试"],
-              ["Trace 成本", latestRun ? `¥${latestRun.costCny.toFixed(2)}` : "未产生"]
-            ]}
-          />
-          {createdAgent ? (
-            <p className="inline-success">
-              已创建智能体：{createdAgent.name}
-              <br />
-              <span>{createdAgent.workflowId}</span>
-            </p>
-          ) : null}
-          {latestRun ? (
-            <p className="inline-success">
-              最新运行：{latestRun.id}
-              <br />
-              <span>{failedStep ? `失败步骤：${failedStep.title}` : "全部步骤通过"}</span>
-            </p>
-          ) : null}
-          {latestRun?.finalOutput ? (
-            <div className="run-output">
-              <strong>智能体调用结果</strong>
-              <p>{latestRun.finalOutput}</p>
-            </div>
-          ) : null}
-          {createAgent.isError ? <p className="inline-error">创建失败，请检查 API 服务。</p> : null}
-        </Panel>
-      </div>
-      <Panel title="智能体资产">
-        <SimpleTable
-          columns={["名称", "场景", "模型", "负责人", "状态"]}
-          rows={(agents.length ? agents : [primaryAgent].filter(Boolean)).map((agent) => [
-            agent?.name,
-            agent?.scenario,
-            modelProviderId || agent?.modelPolicy,
-            agent?.owner,
-            <StatusPill key={agent?.id} tone={agent?.status === "blocked" ? "bad" : agent?.status === "ready" ? "ok" : "info"}>
-              {agent?.status}
-            </StatusPill>
-          ])}
-        />
-      </Panel>
+              <p className="agent-card-description">{agent.scenario || "暂未填写描述"}</p>
+              <div className="agent-card-actions" onClick={(event) => event.stopPropagation()}>
+                <button
+                  aria-expanded={openMenuAgentId === agent.id}
+                  aria-haspopup="menu"
+                  aria-label={`打开${agent.name}操作菜单`}
+                  className="agent-card-menu-trigger"
+                  onClick={() => setOpenMenuAgentId((current) => (current === agent.id ? null : agent.id))}
+                  type="button"
+                >
+                  ...
+                </button>
+                {openMenuAgentId === agent.id ? (
+                  <div className="agent-card-menu" role="menu">
+                    <button onClick={() => openEditDialog(agent)} role="menuitem" type="button">
+                      编辑
+                    </button>
+                    <button disabled={deleteAgent.isPending} onClick={() => handleDeleteAgent(agent.id)} role="menuitem" type="button">
+                      删除
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="empty-note">暂无智能体，点击右上角创建智能体。</p>
+      )}
     </PageScaffold>
   );
 }

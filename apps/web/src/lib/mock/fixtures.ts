@@ -33,11 +33,7 @@ export const workflows: Workflow[] = [
     status: "blocked",
     toolHealthStatus: "degraded",
     nodes: [
-      { id: "node-trigger", type: "trigger", name: "Webhook Trigger", status: "success" },
-      { id: "node-retrieval", type: "retrieval", name: "RAG Retrieve", status: "success" },
-      { id: "node-llm", type: "llm", name: "LLM Decision", status: "success" },
-      { id: "node-tool", type: "tool", name: "create_ticket", status: "failed" },
-      { id: "node-human", type: "human", name: "Human Review", status: "warning" }
+      { id: "node-trigger", type: "trigger", name: "用户输入", status: "success", config: { inputFields: [] } }
     ]
   }
 ];
