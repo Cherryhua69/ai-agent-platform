@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import { Bot, FileInput, Hand, Home, MessageSquarePlus, MousePointer2, Plus, RotateCcw, Sparkles, X } from "lucide-react";
 import {
   Background,
@@ -417,6 +417,8 @@ export function WorkflowPage() {
   const [nodeConfigOverrides, setNodeConfigOverrides] = useState<Record<string, Record<string, unknown>>>({});
   const [nodeDescriptionOverrides, setNodeDescriptionOverrides] = useState<Record<string, string>>({});
   const [layoutMessage, setLayoutMessage] = useState("");
+  const [saveRevision, setSaveRevision] = useState(0);
+  const hasLoadedWorkflowRef = useRef(false);
   const [pendingPlacement, setPendingPlacement] = useState<PendingPlacement>(null);
   const [placementPreviewPosition, setPlacementPreviewPosition] = useState<{ x: number; y: number } | null>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
@@ -454,6 +456,10 @@ export function WorkflowPage() {
   );
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<Edge>(createFlowEdges(workflow?.edges));
 
+  function markWorkflowDirty() {
+    setSaveRevision((revision) => revision + 1);
+  }
+
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
       const targetNode = nodes.find((node) => node.id === nodeId);
@@ -470,6 +476,7 @@ export function WorkflowPage() {
         setSelectedNodeId(nodes.find((node) => node.id !== nodeId)?.id ?? "");
         setIsInspectorOpen(false);
       }
+      markWorkflowDirty();
     },
     [nodes, selectedNodeId, setFlowEdges, setFlowNodes, setSelectedNodeId]
   );
@@ -494,7 +501,14 @@ export function WorkflowPage() {
 
   useEffect(() => {
     setFlowEdges(createFlowEdges(workflow?.edges));
+    hasLoadedWorkflowRef.current = false;
   }, [setFlowEdges, workflow?.edges, workflow?.id]);
+
+  useEffect(() => {
+    if (workflow?.id) {
+      hasLoadedWorkflowRef.current = true;
+    }
+  }, [workflow?.id]);
 
   const selectedLlmConfig = selectedNode?.type === "llm" ? getLlmConfig(selectedNode, modelProviderId) : null;
   const selectedModel = modelProviders.find((provider) => provider.id === (selectedLlmConfig?.modelProviderId || modelProviderId));
@@ -536,7 +550,7 @@ export function WorkflowPage() {
     return node.config ?? {};
   }
 
-  function handleSaveWorkflow() {
+  function saveWorkflowSnapshot(options: { silent?: boolean } = {}) {
     if (!workflow) {
       return;
     }
@@ -579,10 +593,19 @@ export function WorkflowPage() {
         viewport: workflow.viewport ?? { x: 0, y: 0, zoom: 1 }
       },
       {
-        onSuccess: () => setLayoutMessage("已保存工作流配置")
+        onSuccess: () => setLayoutMessage(options.silent ? "已自动保存" : "已保存工作流配置")
       }
     );
   }
+
+  useEffect(() => {
+    if (!workflow || saveRevision === 0 || !hasLoadedWorkflowRef.current) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => saveWorkflowSnapshot({ silent: true }), 150);
+    return () => window.clearTimeout(timeoutId);
+  }, [flowEdges, flowNodes, nodeConfigOverrides, nodeDescriptionOverrides, removedNodeIds, localNodes, saveRevision, workflow?.id]);
 
   function handleAddNode(type: Exclude<PendingPlacement, null>) {
     setPendingPlacement(type);
@@ -632,6 +655,7 @@ export function WorkflowPage() {
       }))
     );
     setLayoutMessage("已自动整理节点");
+    markWorkflowDirty();
   }
 
   function handleCanvasClick(event: MouseEvent) {
@@ -696,6 +720,7 @@ export function WorkflowPage() {
     setPendingPlacement(null);
     setPlacementPreviewPosition(null);
     setLayoutMessage("");
+    markWorkflowDirty();
   }
 
   function handleCanvasMouseMove(event: MouseEvent<Element>) {
@@ -741,6 +766,21 @@ export function WorkflowPage() {
         currentEdges
       )
     );
+    markWorkflowDirty();
+  }
+
+  function handleNodesChange(changes: Parameters<typeof onNodesChange>[0]) {
+    onNodesChange(changes);
+    if (changes.some((change) => change.type === "position" || change.type === "dimensions" || change.type === "remove")) {
+      markWorkflowDirty();
+    }
+  }
+
+  function handleEdgesChange(changes: Parameters<typeof onEdgesChange>[0]) {
+    onEdgesChange(changes);
+    if (changes.some((change) => change.type === "remove" || change.type === "select")) {
+      markWorkflowDirty();
+    }
   }
 
   function updateSelectedNodeConfig(config: Record<string, unknown>) {
@@ -756,6 +796,7 @@ export function WorkflowPage() {
         ...config
       }
     }));
+    markWorkflowDirty();
   }
 
   function updateSelectedNodeDescription(description: string) {
@@ -767,6 +808,7 @@ export function WorkflowPage() {
       ...currentDescriptions,
       [selectedNode.id]: description
     }));
+    markWorkflowDirty();
   }
 
   function createInputField(kind: WorkflowInputField["kind"]): WorkflowInputField {
@@ -1194,17 +1236,8 @@ export function WorkflowPage() {
     <article className="view-page workflow-page" aria-label="工作流页面">
       <header className="workflow-editor-bar">
         <div>
-          <p>自动保存 21:13:36 · 未发布</p>
           <h1>{selectedAgent?.name ?? workflow?.name ?? "工作流配置"}</h1>
           <span>{selectedAgent?.scenario || "配置智能体工作流"}</span>
-        </div>
-        <div className="workflow-editor-actions">
-          <button className="btn" disabled={!workflow || updateWorkflow.isPending} onClick={handleSaveWorkflow} type="button">
-            {updateWorkflow.isPending ? "保存中..." : "保存"}
-          </button>
-          <button className="btn primary" disabled={simulateAgentRun.isPending} onClick={handleRunDebug} type="button">
-            {simulateAgentRun.isPending ? "运行中..." : "运行调试"}
-          </button>
         </div>
       </header>
 
@@ -1261,6 +1294,17 @@ export function WorkflowPage() {
         {layoutMessage ? <p className="workflow-layout-toast">{layoutMessage}</p> : null}
 
         <section className="workflow-canvas" aria-label="工作流画布">
+          <div className="workflow-canvas-actions" aria-label="画布运行操作">
+            <button aria-label="测试运行" className="workflow-run-button" disabled={simulateAgentRun.isPending} onClick={handleRunDebug} type="button">
+              <span aria-hidden="true">▷</span>
+              {simulateAgentRun.isPending ? "运行中..." : "测试运行"}
+              <kbd>Alt</kbd>
+              <kbd>R</kbd>
+            </button>
+            <button className="workflow-icon-action" aria-label="环境变量" type="button">ENV</button>
+            <button className="workflow-icon-action" aria-label="关闭调试" type="button">×</button>
+            <button aria-label="发布" className="workflow-publish-button" type="button">发布⌄</button>
+          </div>
           <ReactFlow
             connectOnClick={false}
             connectionLineStyle={{ stroke: "#2563eb", strokeWidth: 2.4 }}
@@ -1274,10 +1318,10 @@ export function WorkflowPage() {
             nodesConnectable={canvasMode === "select"}
             elementsSelectable={canvasMode === "select"}
             onConnect={handleConnect}
-            onEdgesChange={onEdgesChange}
+            onEdgesChange={handleEdgesChange}
             onInit={setReactFlowInstance}
             onNodeClick={(_, node) => handleSelectNode(node.id)}
-            onNodesChange={onNodesChange}
+            onNodesChange={handleNodesChange}
             onPaneClick={handleCanvasClick}
             onPaneMouseLeave={() => setPlacementPreviewPosition(null)}
             onPaneMouseMove={handleCanvasMouseMove}

@@ -489,8 +489,7 @@ describe("WorkflowPage", () => {
     render(<WorkflowPage />, { wrapper: createWrapper() });
 
     await screen.findByRole("heading", { name: "After-sale Agentflow" });
-    await waitFor(() => expect(screen.getByRole("button", { name: "保存" })).not.toBeDisabled());
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    fireEvent.click(screen.getByRole("button", { name: "自动整理节点" }));
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -579,6 +578,64 @@ describe("WorkflowPage", () => {
     expect(await screen.findByRole("heading", { name: "Model decision" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "配置：Model decision" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("模型配置")).toBeInTheDocument();
+  });
+
+  it("shows canvas run and publish actions while auto-saving workflow edits", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/workflows") && !init?.method) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "workflow-after-sale",
+              agentId: "agent-after-sale",
+              name: "After-sale Agentflow",
+              status: "ready",
+              toolHealthStatus: "online",
+              nodes: [{ id: "node-trigger", type: "trigger", name: "用户输入", status: "success", description: "" }],
+              edges: []
+            }
+          ]
+        };
+      }
+
+      if (url.endsWith("/api/model-providers")) {
+        return { ok: true, json: async () => [] };
+      }
+
+      if (url.endsWith("/api/knowledge-bases")) {
+        return { ok: true, json: async () => [] };
+      }
+
+      if (init?.method === "PUT" && url.endsWith("/api/workflows/workflow-after-sale")) {
+        return { ok: true, json: async () => ({ id: "workflow-after-sale", agentId: "agent-after-sale", ...JSON.parse(String(init.body)) }) };
+      }
+
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<WorkflowPage />, { wrapper: createWrapper() });
+
+    fireEvent.click(await screen.findByRole("button", { name: "用户输入" }));
+    expect(screen.queryByRole("button", { name: "保存" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "运行调试" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "测试运行" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "发布" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("添加描述"), { target: { value: "自动保存描述" } });
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/workflows/workflow-after-sale",
+        expect.objectContaining({ method: "PUT" })
+      )
+    );
+    const saveCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT");
+    const payload = JSON.parse(String(saveCall?.[1]?.body));
+    expect(payload.nodes[0].description).toBe("自动保存描述");
   });
 
   it("renders and saves the user input node input field contract and description", async () => {
@@ -674,8 +731,6 @@ describe("WorkflowPage", () => {
     expect(screen.queryByRole("button", { name: "多文件上传" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "文件上传" }));
     expect(screen.getByText("upload_file · upload_file")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -870,8 +925,7 @@ describe("WorkflowPage", () => {
     expect(screen.getByLabelText("输出变量名")).toHaveValue("");
     expect(screen.getByLabelText("设置变量值")).toHaveValue("");
     expect(screen.queryByRole("option", { name: /LLM/ })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
-    expect(screen.getByText("输出节点“孤立输出”的变量名称和值不能为空，且名称必须唯一")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("输出节点“孤立输出”的变量名称和值不能为空，且名称必须唯一")).toBeInTheDocument());
     expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT")).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: "输出" }));
@@ -889,13 +943,11 @@ describe("WorkflowPage", () => {
     expect(screen.getByText("LLM / text String")).toBeInTheDocument();
     expect((screen.getByRole("button", { name: "输出" })).textContent).toContain("text → node-llm.text");
 
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
-    expect(screen.getByText("输出节点“孤立输出”的变量名称和值不能为空，且名称必须唯一")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("输出节点“孤立输出”的变量名称和值不能为空，且名称必须唯一")).toBeInTheDocument());
     expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT")).toBe(false);
 
     const emptyOutputNode = document.querySelector('[data-id="node-output-empty"]');
     fireEvent.click(within(emptyOutputNode as HTMLElement).getByRole("button", { name: "删除节点" }));
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/workflows/workflow-after-sale",
@@ -922,8 +974,7 @@ describe("WorkflowPage", () => {
     fireEvent.click(within(llmNode as HTMLElement).getByRole("button", { name: "删除节点" }));
     await waitFor(() => expect(screen.queryByRole("option", { name: "LLM / text String" })).not.toBeInTheDocument());
     expect(screen.queryByRole("option", { name: "用户输入 / 问题 String" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
-    expect(screen.getByText("输出节点“输出”引用了不可达变量 node-llm.text")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("输出节点“输出”引用了不可达变量 node-llm.text")).toBeInTheDocument());
     expect(fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT")).toHaveLength(putCallsBeforeDeletingLlm);
   });
 
@@ -1188,8 +1239,6 @@ describe("WorkflowPage", () => {
     fireEvent.click(within(llmNode as HTMLElement).getByRole("button", { name: "删除节点" }));
     await waitFor(() => expect(screen.queryByRole("button", { name: "LLM" })).not.toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
-
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/workflows/workflow-after-sale",
@@ -1382,8 +1431,6 @@ describe("WorkflowPage", () => {
     expect(screen.queryByText("知识库数量")).not.toBeInTheDocument();
     expect(screen.queryByText("最新运行")).not.toBeInTheDocument();
     expect(within(screen.getByLabelText("节点配置")).queryByText("输出")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
