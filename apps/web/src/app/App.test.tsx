@@ -124,8 +124,9 @@ describe("App", () => {
     expect(await screen.findByText("Extract contract clauses and identify risks")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "预览" })).not.toBeInTheDocument();
     expect(screen.queryByText("未配置模型")).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "配置：Contract risk check" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Contract risk check" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Contract risk check" }));
-    expect(await screen.findByRole("heading", { name: "配置：Contract risk check" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Contract risk check" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "配置：Contract risk check" })).not.toBeInTheDocument();
   });
 });

@@ -46,7 +46,18 @@ describe("WorkflowPage", () => {
               status: "blocked",
               toolHealthStatus: "degraded",
               nodes: [
-                { id: "node-trigger", type: "trigger", name: "User input", status: "success" },
+                {
+                  id: "node-trigger",
+                  type: "trigger",
+                  name: "User input",
+                  status: "success",
+                  config: {
+                    inputFields: [
+                      { id: "customer_question", label: "客户问题", variable: "userinput.customer_question", kind: "text", required: true },
+                      { id: "support_file", label: "工单附件", variable: "userinput.support_file", kind: "file", required: false }
+                    ]
+                  }
+                },
                 { id: "node-retrieval", type: "retrieval", name: "Knowledge retrieval", status: "success" },
                 { id: "node-llm", type: "llm", name: "Model decision", status: "success" }
               ]
@@ -216,14 +227,32 @@ describe("WorkflowPage", () => {
 
     expect(screen.queryByRole("button", { name: /LLM 2/ })).not.toBeInTheDocument();
     expect(screen.getByText("点击画布放置 LLM 节点")).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("工作流画布"), { clientX: 640, clientY: 320 });
+    const canvas = screen.getByLabelText("工作流画布");
+    fireEvent.click(screen.getByRole("button", { name: "用户输入" }), { clientX: 480, clientY: 280 });
+    expect(screen.queryByRole("button", { name: /LLM 2/ })).not.toBeInTheDocument();
 
-    expect(await screen.findByRole("button", { name: /LLM 2/ })).toBeInTheDocument();
-    expect(screen.getAllByText("AI 基于检索到的知识库内容结合用户问题，生成清晰、有帮助的回答。").length).toBeGreaterThan(0);
+    const pane = canvas.querySelector(".react-flow__pane");
+    expect(pane).toBeInTheDocument();
+    fireEvent(pane as Element, new MouseEvent("pointermove", { bubbles: true, clientX: 640, clientY: 320 }));
+    const preview = screen.getByLabelText("待放置 LLM 节点");
+    expect(preview).toHaveStyle({ left: "640px", top: "320px" });
+
+    fireEvent(pane as Element, new MouseEvent("pointermove", { bubbles: true, clientX: 720, clientY: 360 }));
+    expect(preview).toHaveStyle({ left: "720px", top: "360px" });
+
+    fireEvent.click(pane as Element, { clientX: 720, clientY: 360 });
+
+    const placedLlmButton = await screen.findByRole("button", { name: /LLM 2/ });
+    expect(placedLlmButton).toBeInTheDocument();
+    const placedLlmNode = placedLlmButton.closest(".react-flow__node");
+    expect(placedLlmNode).toBeInTheDocument();
+    expect(getComputedStyle(placedLlmNode as Element).position).toBe("absolute");
+    expect(screen.queryByLabelText("待放置 LLM 节点")).not.toBeInTheDocument();
+    expect(placedLlmButton.querySelector(".workflow-model-chip")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "添加注释框" }));
     expect(screen.getByText("点击画布放置注释框")).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("工作流画布"), { clientX: 700, clientY: 360 });
+    fireEvent.click(pane as Element, { clientX: 700, clientY: 360 });
     await waitFor(() => expect(screen.getAllByText("注释").length).toBeGreaterThan(0));
 
     fireEvent.click(screen.getByRole("button", { name: "手模式" }));
@@ -283,7 +312,9 @@ describe("WorkflowPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "添加 LLM 节点" }));
     expect(screen.queryByRole("button", { name: /LLM 2/ })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText("工作流画布"), { clientX: 720, clientY: 360 });
+    const pane = screen.getByLabelText("工作流画布").querySelector(".react-flow__pane");
+    expect(pane).toBeInTheDocument();
+    fireEvent.click(pane as Element, { clientX: 720, clientY: 360 });
     expect(await screen.findByRole("button", { name: "LLM 2" })).toBeInTheDocument();
     expect(document.querySelectorAll(".react-flow__edge")).toHaveLength(0);
   });
@@ -374,7 +405,18 @@ describe("WorkflowPage", () => {
               status: "ready",
               toolHealthStatus: "online",
               nodes: [
-                { id: "node-trigger", type: "trigger", name: "User input", status: "success" },
+                {
+                  id: "node-trigger",
+                  type: "trigger",
+                  name: "User input",
+                  status: "success",
+                  config: {
+                    inputFields: [
+                      { id: "customer_question", label: "客户问题", variable: "userinput.customer_question", kind: "text", required: true },
+                      { id: "support_file", label: "工单附件", variable: "userinput.support_file", kind: "file", required: false }
+                    ]
+                  }
+                },
                 { id: "node-llm", type: "llm", name: "LLM", status: "success" }
               ],
               edges: [{ id: "edge-trigger-llm", source: "node-trigger", target: "node-llm" }]
@@ -488,8 +530,9 @@ describe("WorkflowPage", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /Model decision/ }));
 
-    expect(await screen.findByRole("heading", { name: "配置：Model decision" })).toBeInTheDocument();
-    expect(screen.getByLabelText("模型 API")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Model decision" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "配置：Model decision" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("模型配置")).toBeInTheDocument();
   });
 
   it("renders and saves the user input node input field contract and description", async () => {
@@ -644,6 +687,8 @@ describe("WorkflowPage", () => {
     expect(userInputNode).toBeInTheDocument();
     expect((userInputNode as HTMLElement).querySelector(".workflow-handle-right")).toBeInTheDocument();
     expect((userInputNode as HTMLElement).querySelector(".workflow-handle-left")).not.toBeInTheDocument();
+    const sourceHandle = (userInputNode as HTMLElement).querySelector(".workflow-handle-right");
+    expect(getComputedStyle(sourceHandle as Element).pointerEvents).toBe("all");
   });
 
   it("uses stable left and right handle ids for manual node connections", async () => {
@@ -689,7 +734,129 @@ describe("WorkflowPage", () => {
     const llmNode = document.querySelector('[data-id="node-llm"]');
 
     expect((triggerNode as HTMLElement).querySelector('.workflow-handle-right[data-handleid="right"]')).toBeInTheDocument();
-    expect((llmNode as HTMLElement).querySelector('.workflow-handle-left[data-handleid="left"]')).toBeInTheDocument();
+    const targetHandle = (llmNode as HTMLElement).querySelector('.workflow-handle-left[data-handleid="left"]');
+    expect(targetHandle).toBeInTheDocument();
+    expect(getComputedStyle(targetHandle as Element).zIndex).toBe("3");
+  });
+
+  it("configures output node variables from connected upstream variables", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/workflows") && !init?.method) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "workflow-after-sale",
+              agentId: "agent-after-sale",
+              name: "After-sale Agentflow",
+              status: "ready",
+              toolHealthStatus: "online",
+              nodes: [
+                {
+                  id: "node-trigger",
+                  type: "trigger",
+                  name: "User input",
+                  status: "success",
+                  config: {
+                    inputFields: [{ id: "question", label: "问题", variable: "userinput.question", kind: "text", required: true }]
+                  }
+                },
+                {
+                  id: "node-llm",
+                  type: "llm",
+                  name: "LLM",
+                  status: "success",
+                  config: { modelProviderId: "model_provider_local" }
+                },
+                { id: "node-output", type: "expose", name: "输出", status: "success" },
+                { id: "node-output-empty", type: "expose", name: "孤立输出", status: "success" }
+              ],
+              edges: [
+                { id: "edge-trigger-llm", source: "node-trigger", target: "node-llm", sourceHandle: "right", targetHandle: "left" },
+                { id: "edge-llm-output", source: "node-llm", target: "node-output", sourceHandle: "right", targetHandle: "left" }
+              ]
+            }
+          ]
+        };
+      }
+
+      if (url.endsWith("/api/model-providers")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "model_provider_local",
+              name: "Local model",
+              providerType: "openai-compatible",
+              baseUrl: "mock://local",
+              model: "local-smoke",
+              apiKeyPreview: "sk-...ocal",
+              status: "online",
+              isDefault: true
+            }
+          ]
+        };
+      }
+
+      if (url.endsWith("/api/knowledge-bases")) {
+        return { ok: true, json: async () => [] };
+      }
+
+      if (init?.method === "PUT" && url.endsWith("/api/workflows/workflow-after-sale")) {
+        return { ok: true, json: async () => JSON.parse(String(init.body)) };
+      }
+
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<WorkflowPage />, { wrapper: createWrapper() });
+
+    fireEvent.click(await screen.findByRole("button", { name: "孤立输出" }));
+    expect(await screen.findByRole("heading", { name: "孤立输出" })).toBeInTheDocument();
+    expect(screen.queryByText("设置")).not.toBeInTheDocument();
+    expect(screen.queryByText("上次运行")).not.toBeInTheDocument();
+    expect(screen.getByText("输出变量")).toBeInTheDocument();
+    expect(screen.getByText("*")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "添加输出变量" }));
+    expect(screen.getByLabelText("输出变量名")).toHaveValue("");
+    expect(screen.getByLabelText("设置变量值")).toHaveValue("");
+    expect(screen.queryByRole("option", { name: /LLM/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "输出" }));
+    expect(await screen.findByRole("heading", { name: "输出" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "添加输出变量" }));
+    fireEvent.change(screen.getByLabelText("输出变量名"), { target: { value: "text" } });
+    expect(screen.getByRole("option", { name: "LLM / text String" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "LLM / reasoning_content String" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "LLM / usage Object" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "用户输入 / 问题 String" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("设置变量值"), { target: { value: "node-llm.text" } });
+    expect(screen.getByText("LLM / text String")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/workflows/workflow-after-sale",
+        expect.objectContaining({
+          method: "PUT"
+        })
+      )
+    );
+    const saveCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT");
+    const payload = JSON.parse(String(saveCall?.[1]?.body));
+    expect(payload.nodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "node-output",
+          config: expect.objectContaining({
+            outputVariables: [expect.objectContaining({ name: "text", value: "node-llm.text" })]
+          })
+        })
+      ])
+    );
   });
 
   it("shows knowledge base configuration when selecting a retrieval node", async () => {
@@ -827,11 +994,10 @@ describe("WorkflowPage", () => {
     render(<WorkflowPage />, { wrapper: createWrapper() });
 
     fireEvent.click(await screen.findByRole("button", { name: /Configured model/ }));
-    await waitFor(() => expect(screen.getByLabelText("模型 API")).toHaveValue("model_provider_local"));
+    await waitFor(() => expect(screen.getByLabelText("模型配置")).toHaveValue("model_provider_local"));
     fireEvent.click(screen.getByRole("button", { name: "运行调试" }));
 
-    await waitFor(() => expect(screen.getByText("Configured model answer")).toBeInTheDocument());
-    expect(fetchMock).toHaveBeenCalledWith("/api/agents/agent-after-sale/runs", {
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/agents/agent-after-sale/runs", {
       body: JSON.stringify({
         userInput: "Order ORD-2048 asks whether refund is allowed",
         modelProviderId: "model_provider_local",
@@ -839,7 +1005,8 @@ describe("WorkflowPage", () => {
       }),
       headers: { "Content-Type": "application/json" },
       method: "POST"
-    });
+    }));
+    expect(screen.queryByText("Configured model answer")).not.toBeInTheDocument();
   });
 
   it("hides node success status and allows deleting configurable nodes except the default user input", async () => {
@@ -986,8 +1153,36 @@ describe("WorkflowPage", () => {
               status: "ready",
               toolHealthStatus: "online",
               nodes: [
-                { id: "node-trigger", type: "trigger", name: "User input", status: "success" },
-                { id: "node-llm", type: "llm", name: "LLM", status: "success" }
+                {
+                  id: "node-trigger",
+                  type: "trigger",
+                  name: "User input",
+                  status: "success",
+                  config: {
+                    inputFields: [
+                      { id: "customer_question", label: "客户问题", variable: "userinput.customer_question", kind: "text", required: true },
+                      { id: "support_file", label: "工单附件", variable: "userinput.support_file", kind: "file", required: false }
+                    ]
+                  }
+                },
+                { id: "node-llm", type: "llm", name: "LLM", status: "success" },
+                {
+                  id: "node-llm-review",
+                  type: "llm",
+                  name: "LLM Review",
+                  status: "success",
+                  config: {
+                    modelProviderId: "model_provider_backup",
+                    contextVariables: ["node-llm.text"],
+                    systemPrompt: "Keep review independent",
+                    userPrompt: "Review the answer",
+                    retryOnFailure: false
+                  }
+                }
+              ],
+              edges: [
+                { id: "edge-trigger-llm", source: "node-trigger", target: "node-llm", sourceHandle: "right", targetHandle: "left" },
+                { id: "edge-llm-review", source: "node-llm", target: "node-llm-review", sourceHandle: "right", targetHandle: "left" }
               ]
             }
           ]
@@ -1007,6 +1202,17 @@ describe("WorkflowPage", () => {
               apiKeyPreview: "sk-...ocal",
               status: "online",
               isDefault: true
+            }
+            ,
+            {
+              id: "model_provider_backup",
+              name: "Backup model",
+              providerType: "openai-compatible",
+              baseUrl: "mock://backup",
+              model: "backup-model",
+              apiKeyPreview: "sk-...back",
+              status: "online",
+              isDefault: false
             }
           ]
         };
@@ -1029,8 +1235,51 @@ describe("WorkflowPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "用户输入" }));
     fireEvent.change(screen.getByLabelText("添加描述"), { target: { value: "用户输入节点描述" } });
     fireEvent.click(await screen.findByRole("button", { name: "LLM" }));
-    await waitFor(() => expect(screen.getByLabelText("模型 API")).toHaveValue("model_provider_local"));
-    fireEvent.change(screen.getByLabelText("模型 API"), { target: { value: "model_provider_local" } });
+    await waitFor(() => expect(screen.getByLabelText("模型配置")).toHaveValue("model_provider_local"));
+    expect(screen.getAllByText("local-smoke").length).toBeGreaterThan(0);
+    expect(screen.queryByText("CHAT")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "LLM" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "配置：LLM" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("模型配置"), { target: { value: "model_provider_local" } });
+    fireEvent.change(screen.getByLabelText("LLM 节点描述"), { target: { value: "用于生成售后回复" } });
+    expect(screen.queryByRole("checkbox", { name: "用户输入文本 userinput.text" })).not.toBeInTheDocument();
+    expect(screen.queryByText("设置")).not.toBeInTheDocument();
+    expect(document.querySelector(".workflow-inspector-tabs")).not.toBeInTheDocument();
+    expect(screen.getByText("local-smoke").closest(".workflow-model-chip")).toBeInTheDocument();
+    expect(screen.getByLabelText("上下文配置")).toHaveValue("");
+    expect(screen.getByRole("option", { name: "客户问题 · userinput.customer_question" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "工单附件 · userinput.support_file" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "用户输入文本 · userinput.text" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("上下文配置"), { target: { value: "userinput.customer_question" } });
+    expect(screen.getByText("输出变量")).toBeInTheDocument();
+    expect(screen.queryByText("结构化输出")).not.toBeInTheDocument();
+    expect(screen.getByText("text")).toBeInTheDocument();
+    expect(screen.getAllByText("string")).toHaveLength(2);
+    expect(screen.getByText("生成内容")).toBeInTheDocument();
+    expect(screen.getByText("reasoning_content")).toBeInTheDocument();
+    expect(screen.getByText("推理内容")).toBeInTheDocument();
+    expect(screen.getByText("usage")).toBeInTheDocument();
+    expect(screen.getByText("object")).toBeInTheDocument();
+    expect(screen.getByText("模型用量信息")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("SYSTEM 提示词"), { target: { value: "你是售后政策助手，只回答政策内问题。" } });
+    fireEvent.change(screen.getByLabelText("USER 提示词"), { target: { value: "基于上下文回答：{{userinput.text}}" } });
+    const retrySwitch = screen.getByRole("switch", { name: "失败时重试" });
+    expect(retrySwitch.closest(".llm-switch")).toBeInTheDocument();
+    fireEvent.click(retrySwitch);
+    fireEvent.click(screen.getByRole("button", { name: "LLM Review" }));
+    await waitFor(() => expect(screen.getByLabelText("模型配置")).toHaveValue("model_provider_backup"));
+    expect(screen.getByRole("heading", { name: "LLM Review" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "配置：LLM Review" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("上下文配置")).toHaveValue("node-llm.text");
+    const llmReviewButton = screen.getByRole("button", { name: "LLM Review" });
+    expect(llmReviewButton.querySelector(".workflow-node-title .workflow-node-icon")).toBeInTheDocument();
+    expect(llmReviewButton.querySelector(".workflow-model-chip svg")).not.toBeInTheDocument();
+    expect(screen.queryByText("选中节点")).not.toBeInTheDocument();
+    expect(screen.queryByText("模型")).not.toBeInTheDocument();
+    expect(screen.queryByText("知识库数量")).not.toBeInTheDocument();
+    expect(screen.queryByText("最新运行")).not.toBeInTheDocument();
+    expect(screen.queryByText("输出")).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() =>
@@ -1054,10 +1303,33 @@ describe("WorkflowPage", () => {
             inputFields: expect.any(Array)
           })
         }),
-        expect.objectContaining({ id: "node-llm", config: expect.objectContaining({ modelProviderId: "model_provider_local" }) })
+        expect.objectContaining({
+          id: "node-llm",
+          description: "用于生成售后回复",
+          config: expect.objectContaining({
+            modelProviderId: "model_provider_local",
+            contextVariables: ["userinput.customer_question"],
+            systemPrompt: "你是售后政策助手，只回答政策内问题。",
+            userPrompt: "基于上下文回答：{{userinput.text}}",
+            retryOnFailure: true
+          })
+        }),
+        expect.objectContaining({
+          id: "node-llm-review",
+          config: expect.objectContaining({
+            modelProviderId: "model_provider_backup",
+            contextVariables: ["node-llm.text"],
+            systemPrompt: "Keep review independent",
+            userPrompt: "Review the answer",
+            retryOnFailure: false
+          })
+        })
       ])
     );
-    expect(payload.edges).toEqual([]);
+    expect(payload.edges).toEqual([
+      expect.objectContaining({ id: "edge-trigger-llm", source: "node-trigger", target: "node-llm" }),
+      expect.objectContaining({ id: "edge-llm-review", source: "node-llm", target: "node-llm-review" })
+    ]);
     expect(payload.viewport).toEqual({ x: 0, y: 0, zoom: 1 });
   });
 });

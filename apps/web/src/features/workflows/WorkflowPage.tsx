@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
-import { FileInput, Hand, Home, MessageSquarePlus, MousePointer2, Plus, Sparkles, X } from "lucide-react";
+import { Bot, FileInput, Hand, Home, MessageSquarePlus, MousePointer2, Plus, RotateCcw, Sparkles, X } from "lucide-react";
 import {
   Background,
   Controls,
+  ConnectionLineType,
   Handle,
   MarkerType,
   MiniMap,
@@ -14,10 +15,11 @@ import {
   type Connection,
   type Edge,
   type Node,
-  type NodeTypes
+  type NodeTypes,
+  type ReactFlowInstance
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import type { RunTrace, WorkflowEdge, WorkflowInputField, WorkflowNode } from "../../types/domain";
+import type { Agent, KnowledgeBase, ModelProvider, RunTrace, Workflow, WorkflowEdge, WorkflowInputField, WorkflowNode } from "../../types/domain";
 import { useAgents } from "../agents/useAgents";
 import { useSimulateAgentRun } from "../agents/useSimulateAgentRun";
 import { useKnowledgeBases } from "../knowledge/useKnowledgeBases";
@@ -36,6 +38,18 @@ const nodePositions = [
 ];
 
 const flowNodeSize = { width: 168, height: 96 };
+const emptyAgents: Agent[] = [];
+const emptyWorkflows: Workflow[] = [];
+const emptyModelProviders: ModelProvider[] = [];
+const emptyKnowledgeBases: KnowledgeBase[] = [];
+
+type LlmNodeConfig = {
+  modelProviderId: string;
+  contextVariables: string[];
+  systemPrompt: string;
+  userPrompt: string;
+  retryOnFailure: boolean;
+};
 
 const defaultInputFields: WorkflowInputField[] = [];
 
@@ -122,16 +136,42 @@ function getRunStatus(node: WorkflowNode, latestRun: RunTrace | null) {
   return latestRun?.steps.find((step) => step.type === node.type || step.title === node.name)?.status ?? node.status;
 }
 
+function readString(value: unknown, fallback = "") {
+  return typeof value === "string" ? value : fallback;
+}
+
+function readStringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function getLlmConfig(node: WorkflowNode | undefined, fallbackModelProviderId = ""): LlmNodeConfig {
+  const config = node?.config ?? {};
+
+  return {
+    modelProviderId: readString(config.modelProviderId, fallbackModelProviderId),
+    contextVariables: readStringArray(config.contextVariables),
+    systemPrompt: readString(config.systemPrompt),
+    userPrompt: readString(config.userPrompt),
+    retryOnFailure: Boolean(config.retryOnFailure)
+  };
+}
+
+function getModelLabel(modelProviders: ModelProvider[], modelProviderId: string) {
+  const provider = modelProviders.find((item) => item.id === modelProviderId);
+  return provider?.model ?? "";
+}
+
 type WorkflowFlowNodeData = {
   node: WorkflowNode;
   status: WorkflowNode["status"];
   canDelete: boolean;
+  modelLabel?: string;
   onDelete: (nodeId: string) => void;
   onSelect: (nodeId: string) => void;
 };
 
 function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
-  const { node, canDelete, onDelete, onSelect } = data;
+  const { node, canDelete, modelLabel, onDelete, onSelect } = data;
   const inputFields = node.type === "trigger" ? getInputFields(node) : [];
 
   function handleDelete(event: MouseEvent<HTMLElement>) {
@@ -180,7 +220,9 @@ function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
 
   return (
     <>
-      {node.type === "trigger" ? null : <Handle className="workflow-handle workflow-handle-left" id="left" position={Position.Left} type="target" />}
+      {node.type === "trigger" ? null : (
+        <Handle className="workflow-handle workflow-handle-left" id="left" position={Position.Left} style={{ zIndex: 3 }} type="target" />
+      )}
       <button
         aria-label={node.name}
         className="workflow-flow-node-button"
@@ -191,9 +233,9 @@ function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
         type="button"
       >
         <span className="workflow-node-title">
-          {node.type === "trigger" ? (
+          {node.type === "trigger" || node.type === "llm" ? (
             <span className="workflow-node-icon" aria-hidden="true">
-              <Home size={13} />
+              {node.type === "trigger" ? <Home size={13} /> : <Bot size={13} />}
             </span>
           ) : null}
           <strong>{node.name}</strong>
@@ -210,6 +252,10 @@ function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
               </span>
             ))}
           </span>
+        ) : node.type === "llm" ? (
+          <span className="workflow-model-chip">
+            <span>{modelLabel || "未选择模型"}</span>
+          </span>
         ) : (
           <span>{node.description ?? getNodeTypeLabel(node.type)}</span>
         )}
@@ -219,7 +265,7 @@ function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
           ×
         </button>
       ) : null}
-      <Handle className="workflow-handle workflow-handle-right" id="right" position={Position.Right} type="source" />
+      <Handle className="workflow-handle workflow-handle-right" id="right" position={Position.Right} style={{ zIndex: 3 }} type="source" />
     </>
   );
 }
@@ -235,9 +281,9 @@ function createFlowEdges(edges: WorkflowEdge[] = []): Edge[] {
     target: edge.target,
     sourceHandle: edge.sourceHandle ?? undefined,
     targetHandle: edge.targetHandle ?? undefined,
-    type: "smoothstep",
-    animated: true,
-    className: "workflow-flow-edge animated",
+    type: "bezier",
+    animated: false,
+    className: "workflow-flow-edge",
     markerEnd: {
       type: MarkerType.ArrowClosed,
       width: 18,
@@ -253,7 +299,9 @@ function createFlowNodes(
   latestRun: RunTrace | null,
   onDeleteNode: (nodeId: string) => void = () => undefined,
   onSelectNode: (nodeId: string) => void = () => undefined,
-  currentNodes: Node[] = []
+  currentNodes: Node[] = [],
+  modelProviders: ModelProvider[] = [],
+  fallbackModelProviderId = ""
 ): Node[] {
   return nodes.map((node, index) => {
     const status = getRunStatus(node, latestRun);
@@ -267,10 +315,12 @@ function createFlowNodes(
       width: isComment ? 260 : flowNodeSize.width,
       height: isComment ? 140 : flowNodeSize.height,
       measured: isComment ? { width: 260, height: 140 } : flowNodeSize,
+      style: { position: "absolute" },
       data: {
         node,
         status,
         canDelete: !isDefaultUserInputNode(node),
+        modelLabel: node.type === "llm" ? getModelLabel(modelProviders, getLlmConfig(node, fallbackModelProviderId).modelProviderId) : undefined,
         onDelete: onDeleteNode,
         onSelect: onSelectNode
       },
@@ -287,8 +337,8 @@ export function WorkflowPage() {
   const knowledgeBasesQuery = useKnowledgeBases();
   const simulateAgentRun = useSimulateAgentRun();
   const updateWorkflow = useUpdateWorkflow();
-  const modelProviders = modelProvidersQuery.data ?? [];
-  const knowledgeBases = knowledgeBasesQuery.data ?? [];
+  const modelProviders = modelProvidersQuery.data ?? emptyModelProviders;
+  const knowledgeBases = knowledgeBasesQuery.data ?? emptyKnowledgeBases;
   const {
     selectedAgentId,
     selectedWorkflowId,
@@ -310,10 +360,12 @@ export function WorkflowPage() {
   const [nodeDescriptionOverrides, setNodeDescriptionOverrides] = useState<Record<string, string>>({});
   const [layoutMessage, setLayoutMessage] = useState("");
   const [pendingPlacement, setPendingPlacement] = useState<PendingPlacement>(null);
+  const [placementPreviewPosition, setPlacementPreviewPosition] = useState<{ x: number; y: number } | null>(null);
+  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isInputTypeMenuOpen, setIsInputTypeMenuOpen] = useState(false);
-  const agents = agentsQuery.data ?? [];
-  const workflows = workflowsQuery.data ?? [];
+  const agents = agentsQuery.data ?? emptyAgents;
+  const workflows = workflowsQuery.data ?? emptyWorkflows;
   const workflow = workflows.find((item) => item.id === selectedWorkflowId) ?? workflows.find((item) => item.agentId === selectedAgentId) ?? workflows[0];
   const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? agents.find((agent) => agent.workflowId === workflow?.id);
   const baseNodes = useMemo(() => ensureUserInputFirst(workflow?.nodes ?? fallbackNodes), [workflow?.nodes]);
@@ -339,7 +391,9 @@ export function WorkflowPage() {
     },
     [setSelectedNodeId]
   );
-  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, undefined, handleSelectNode));
+  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(
+    createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, undefined, handleSelectNode, [], modelProviders, modelProviderId)
+  );
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<Edge>(createFlowEdges(workflow?.edges));
 
   const handleDeleteNode = useCallback(
@@ -375,14 +429,17 @@ export function WorkflowPage() {
   }, [nodes, selectedNodeId, setSelectedNodeId]);
 
   useEffect(() => {
-    setFlowNodes((currentNodes) => createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, currentNodes));
-  }, [handleDeleteNode, handleSelectNode, latestRun, nodes, selectedNode?.id, setFlowNodes]);
+    setFlowNodes((currentNodes) =>
+      createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, currentNodes, modelProviders, modelProviderId)
+    );
+  }, [handleDeleteNode, handleSelectNode, latestRun, modelProviderId, modelProviders, nodes, selectedNode?.id, setFlowNodes]);
 
   useEffect(() => {
     setFlowEdges(createFlowEdges(workflow?.edges));
   }, [setFlowEdges, workflow?.edges, workflow?.id]);
 
-  const selectedModel = modelProviders.find((provider) => provider.id === modelProviderId);
+  const selectedLlmConfig = selectedNode?.type === "llm" ? getLlmConfig(selectedNode, modelProviderId) : null;
+  const selectedModel = modelProviders.find((provider) => provider.id === (selectedLlmConfig?.modelProviderId || modelProviderId));
   const failedStep = latestRun?.steps.find((step) => step.status === "failed");
 
   function handleRunDebug() {
@@ -407,7 +464,7 @@ export function WorkflowPage() {
       };
     }
     if (node.type === "llm") {
-      return { modelProviderId: modelProviderId || null };
+      return getLlmConfig(node, modelProviderId);
     }
     if (node.type === "retrieval") {
       return { knowledgeBaseIds };
@@ -457,13 +514,52 @@ export function WorkflowPage() {
 
   function handleAddLlmNode() {
     setPendingPlacement("llm");
+    setPlacementPreviewPosition(null);
     setIsNodeMenuOpen(false);
     setCanvasMode("select");
     setLayoutMessage("点击画布放置 LLM 节点");
   }
 
+  function getUpstreamContextOptions(node: WorkflowNode) {
+    const directSourceIds = flowEdges.filter((edge) => edge.target === node.id).map((edge) => edge.source);
+    const candidates = nodes.filter((item) => directSourceIds.includes(item.id));
+
+    return candidates
+      .filter((item) => item.id !== node.id && item.type !== "comment")
+      .flatMap((item) => {
+        if (item.type === "trigger") {
+          return getInputFields(item).map((field) => ({
+            label: field.label,
+            variable: field.variable
+          }));
+        }
+
+        return [{ label: `${item.name} 输出`, variable: `${item.id}.text` }];
+      });
+  }
+
+  function updateSelectedLlmConfig(config: Partial<LlmNodeConfig>) {
+    if (!selectedNode || selectedNode.type !== "llm") {
+      return;
+    }
+
+    updateSelectedNodeConfig({
+      ...getLlmConfig(selectedNode, modelProviderId),
+      ...config
+    });
+  }
+
+  function toggleLlmContextVariable(variable: string) {
+    if (!selectedNode || selectedNode.type !== "llm") {
+      return;
+    }
+
+    updateSelectedLlmConfig({ contextVariables: variable ? [variable] : [] });
+  }
+
   function handleAddComment() {
     setPendingPlacement("comment");
+    setPlacementPreviewPosition(null);
     setCanvasMode("select");
     setLayoutMessage("点击画布放置注释框");
   }
@@ -483,12 +579,17 @@ export function WorkflowPage() {
       return;
     }
 
+    const isLlm = pendingPlacement === "llm";
+    const nodeSize = isLlm ? flowNodeSize : { width: 260, height: 140 };
     const canvasRect = event.currentTarget.getBoundingClientRect();
-    const position = {
+    const pointerPosition = reactFlowInstance?.screenToFlowPosition({ x: event.clientX, y: event.clientY }) ?? {
       x: event.clientX - canvasRect.left,
       y: event.clientY - canvasRect.top
     };
-    const isLlm = pendingPlacement === "llm";
+    const position = {
+      x: pointerPosition.x - nodeSize.width / 2,
+      y: pointerPosition.y - nodeSize.height / 2
+    };
     const id = `local-${pendingPlacement}-${Date.now()}`;
     const nextNode: WorkflowNode = isLlm
       ? {
@@ -514,7 +615,20 @@ export function WorkflowPage() {
     setSelectedNodeId(id);
     setIsInspectorOpen(true);
     setPendingPlacement(null);
+    setPlacementPreviewPosition(null);
     setLayoutMessage("");
+  }
+
+  function handleCanvasMouseMove(event: MouseEvent<Element>) {
+    if (!pendingPlacement) {
+      return;
+    }
+
+    const canvasRect = event.currentTarget.getBoundingClientRect();
+    setPlacementPreviewPosition({
+      x: event.clientX - canvasRect.left,
+      y: event.clientY - canvasRect.top
+    });
   }
 
   function handleEditorPointerDownCapture(event: PointerEvent<HTMLDivElement>) {
@@ -535,9 +649,9 @@ export function WorkflowPage() {
       addEdge(
         {
           ...connection,
-          type: "smoothstep",
-          animated: true,
-          className: "workflow-flow-edge animated",
+          type: "bezier",
+          animated: false,
+          className: "workflow-flow-edge",
           markerEnd: {
             type: MarkerType.ArrowClosed,
             width: 18,
@@ -719,6 +833,115 @@ export function WorkflowPage() {
     }
 
     if (selectedNode.type === "llm") {
+      const llmConfig = getLlmConfig(selectedNode, modelProviderId);
+      const contextOptions = getUpstreamContextOptions(selectedNode);
+
+      return (
+        <div className="field-stack llm-config-panel">
+          <label className="field-stack workflow-description-field">
+            <span>添加描述</span>
+            <input
+              aria-label="LLM 节点描述"
+              onChange={(event) => updateSelectedNodeDescription(event.target.value)}
+              placeholder="添加描述..."
+              type="text"
+              value={selectedNode.description ?? ""}
+            />
+          </label>
+          <label className="field-stack">
+            <span>模型配置</span>
+            <select aria-label="模型配置" value={llmConfig.modelProviderId} onChange={(event) => updateSelectedLlmConfig({ modelProviderId: event.target.value })}>
+              <option value="">请选择模型配置</option>
+              {modelProviders.map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name} / {provider.model}
+                </option>
+              ))}
+            </select>
+          </label>
+          <section className="llm-context-config">
+            <label className="field-stack">
+              <span>上下文配置</span>
+              <select
+                aria-label="上下文配置"
+                onChange={(event) => toggleLlmContextVariable(event.target.value)}
+                value={llmConfig.contextVariables[0] ?? ""}
+              >
+                <option value="">不选择上游输出变量</option>
+                {contextOptions.map((option) => (
+                  <option key={option.variable} value={option.variable}>
+                    {option.label} · {option.variable}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {contextOptions.length === 0 ? <p className="empty-note">连接上游节点后可选择上下文变量。</p> : null}
+          </section>
+          <label className="llm-prompt-card">
+            <span>SYSTEM</span>
+            <textarea
+              aria-label="SYSTEM 提示词"
+              onChange={(event) => updateSelectedLlmConfig({ systemPrompt: event.target.value })}
+              placeholder="在这里写你的系统提示词，输入 / 可插入变量"
+              rows={4}
+              value={llmConfig.systemPrompt}
+            />
+          </label>
+          <label className="llm-prompt-card">
+            <span>USER</span>
+            <textarea
+              aria-label="USER 提示词"
+              onChange={(event) => updateSelectedLlmConfig({ userPrompt: event.target.value })}
+              placeholder="在这里写用户提示词，输入 / 可插入变量"
+              rows={4}
+              value={llmConfig.userPrompt}
+            />
+          </label>
+          <section className="llm-output-variables" aria-label="输出变量">
+            <strong>输出变量</strong>
+            <div>
+              <span>
+                <code>text</code>
+                <small>string</small>
+              </span>
+              <p>生成内容</p>
+            </div>
+            <div>
+              <span>
+                <code>reasoning_content</code>
+                <small>string</small>
+              </span>
+              <p>推理内容</p>
+            </div>
+            <div>
+              <span>
+                <code>usage</code>
+                <small>object</small>
+              </span>
+              <p>模型用量信息</p>
+            </div>
+          </section>
+          <label className="llm-toggle-row">
+            <span>
+              <RotateCcw aria-hidden="true" size={14} />
+              失败时重试
+            </span>
+            <span className="llm-switch">
+              <input
+                aria-label="失败时重试"
+                checked={llmConfig.retryOnFailure}
+                onChange={(event) => updateSelectedLlmConfig({ retryOnFailure: event.target.checked })}
+                role="switch"
+                type="checkbox"
+              />
+              <span aria-hidden="true" />
+            </span>
+          </label>
+        </div>
+      );
+    }
+
+    if (false && selectedNode.type === "llm") {
       return (
         <div className="field-stack">
           <p className="node-description">{selectedNode.description ?? LLM_DESCRIPTION}</p>
@@ -830,8 +1053,12 @@ export function WorkflowPage() {
         </nav>
         {layoutMessage ? <p className="workflow-layout-toast">{layoutMessage}</p> : null}
 
-        <section className="workflow-canvas" aria-label="工作流画布" onClick={handleCanvasClick}>
+        <section className="workflow-canvas" aria-label="工作流画布">
           <ReactFlow
+            connectOnClick={false}
+            connectionLineStyle={{ stroke: "#2563eb", strokeWidth: 2.4 }}
+            connectionLineType={ConnectionLineType.Bezier}
+            connectionRadius={32}
             fitView
             nodes={flowNodes}
             edges={flowEdges}
@@ -841,8 +1068,12 @@ export function WorkflowPage() {
             elementsSelectable={canvasMode === "select"}
             onConnect={handleConnect}
             onEdgesChange={onEdgesChange}
+            onInit={setReactFlowInstance}
             onNodeClick={(_, node) => handleSelectNode(node.id)}
             onNodesChange={onNodesChange}
+            onPaneClick={handleCanvasClick}
+            onPaneMouseLeave={() => setPlacementPreviewPosition(null)}
+            onPaneMouseMove={handleCanvasMouseMove}
             panOnDrag={canvasMode === "pan"}
             zoomOnScroll
             minZoom={0.35}
@@ -852,6 +1083,16 @@ export function WorkflowPage() {
             <MiniMap pannable zoomable nodeColor="#8b94a8" />
             <Controls showInteractive={false} />
           </ReactFlow>
+          {pendingPlacement && placementPreviewPosition ? (
+            <div
+              aria-label={pendingPlacement === "llm" ? "待放置 LLM 节点" : "待放置注释框"}
+              className={`workflow-placement-preview workflow-placement-preview-${pendingPlacement}`}
+              style={{ left: placementPreviewPosition.x, top: placementPreviewPosition.y }}
+            >
+              <strong>{pendingPlacement === "llm" ? `LLM ${nodes.filter((node) => node.type === "llm").length + 1}` : "注释"}</strong>
+              <span>{pendingPlacement === "llm" ? LLM_DESCRIPTION : "记录流程说明、测试假设或协作备注。"}</span>
+            </div>
+          ) : null}
         </section>
 
         {isInspectorOpen ? (
@@ -860,12 +1101,18 @@ export function WorkflowPage() {
               <X aria-hidden="true" />
             </button>
             <div className="inspector-section">
-              <h2>{selectedNode?.type === "trigger" ? "用户输入" : `配置：${selectedNode?.name ?? "未选择节点"}`}</h2>
+              <h2>
+                {selectedNode?.type === "trigger"
+                  ? "用户输入"
+                  : selectedNode?.type === "llm"
+                    ? selectedNode.name
+                    : `配置：${selectedNode?.name ?? "未选择节点"}`}
+              </h2>
               {selectedNode?.type === "trigger" ? null : <span>{selectedNode?.type ?? "node"}</span>}
               {renderNodeInspector()}
             </div>
 
-            {selectedNode?.type === "trigger" ? null : (
+            {selectedNode?.type === "trigger" || selectedNode?.type === "llm" ? null : (
               <>
                 <KeyValueList
                   items={[
