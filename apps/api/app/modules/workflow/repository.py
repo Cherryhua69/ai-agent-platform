@@ -88,6 +88,22 @@ class WorkflowRepository:
 
         return self._workflows.get(workflow_id)
 
+    def get_by_agent_id(self, agent_id: str) -> WorkflowRead | None:
+        if self._session_factory:
+            with self._session_factory() as session:
+                workflow = session.scalar(
+                    select(WorkflowModel)
+                    .where(WorkflowModel.agent_id == agent_id)
+                    .order_by(WorkflowModel.updated_at.desc())
+                )
+                if workflow is not None:
+                    return self._to_read_model(workflow)
+
+        seeded = next((workflow for workflow in self._seed_workflows if workflow.agent_id == agent_id), None)
+        if seeded is not None:
+            return seeded
+        return next((workflow for workflow in self._workflows.values() if workflow.agent_id == agent_id), None)
+
     def update(self, workflow_id: str, payload: WorkflowUpdate) -> WorkflowRead | None:
         if self._session_factory:
             with self._session_factory() as session:

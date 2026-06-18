@@ -6,15 +6,28 @@ from app.modules.agent.run_service import AgentRunService
 from app.modules.agent.schemas import AgentCreate, AgentRead, AgentRunRequest, AgentUpdate
 from app.modules.knowledge.repository import KnowledgeRepository
 from app.modules.model_provider.repository import ModelProviderRepository
+from app.modules.model_provider.service import LangChainModelClient
 from app.modules.trace.repository import TraceRepository
 from app.modules.trace.schemas import RunTraceRead
+from app.modules.workflow.graph_compiler import GraphCompiler
+from app.modules.workflow.graph_executor import GraphExecutor
+from app.modules.workflow.node_registry import NodeRegistry
+from app.modules.workflow.repository import WorkflowRepository
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 repo = AgentRepository(session_factory=SessionLocal)
+model_providers = ModelProviderRepository(session_factory=SessionLocal)
+knowledge = KnowledgeRepository(session_factory=SessionLocal)
+model_client = LangChainModelClient()
+workflows = WorkflowRepository(session_factory=SessionLocal)
+graph_executor = GraphExecutor(GraphCompiler(NodeRegistry(model_providers, knowledge, model_client)))
 run_service = AgentRunService(
     traces=TraceRepository(session_factory=SessionLocal),
-    model_providers=ModelProviderRepository(session_factory=SessionLocal),
-    knowledge=KnowledgeRepository(session_factory=SessionLocal),
+    model_providers=model_providers,
+    knowledge=knowledge,
+    model_client=model_client,
+    workflows=workflows,
+    graph_executor=graph_executor,
 )
 
 

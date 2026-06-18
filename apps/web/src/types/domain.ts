@@ -17,7 +17,7 @@ export type Agent = {
 
 export type WorkflowNode = {
   id: string;
-  type: "trigger" | "retrieval" | "llm" | "tool" | "human" | "expose" | "comment";
+  type: "trigger" | "retrieval" | "llm" | "tool" | "human" | "expose" | "comment" | "condition" | "loop";
   name: string;
   status: TraceStepStatus;
   description?: string;

@@ -223,6 +223,9 @@ describe("WorkflowPage", () => {
     }
 
     expect(await screen.findByRole("button", { name: "添加 LLM 节点" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "添加输出节点" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "添加条件节点" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "添加循环节点" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "添加 LLM 节点" }));
 
     expect(screen.queryByRole("button", { name: /LLM 2/ })).not.toBeInTheDocument();
@@ -254,6 +257,38 @@ describe("WorkflowPage", () => {
     expect(screen.getByText("点击画布放置注释框")).toBeInTheDocument();
     fireEvent.click(pane as Element, { clientX: 700, clientY: 360 });
     await waitFor(() => expect(screen.getAllByText("注释").length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getByRole("button", { name: "添加节点" }));
+    fireEvent.click(screen.getByRole("button", { name: "添加条件节点" }));
+    fireEvent.click(pane as Element, { clientX: 760, clientY: 390 });
+    const conditionButton = await screen.findByRole("button", { name: "条件" });
+    const conditionNode = conditionButton.closest(".react-flow__node");
+    expect(conditionNode?.querySelector('.workflow-handle-right[data-handleid="true"]')).toBeInTheDocument();
+    expect(conditionNode?.querySelector('.workflow-handle-right[data-handleid="default"]')).toBeInTheDocument();
+    expect(screen.getByLabelText("条件变量")).toBeInTheDocument();
+    expect(screen.getByLabelText("运算符")).toBeInTheDocument();
+    expect(screen.getByLabelText("比较值")).toBeInTheDocument();
+    expect(screen.getByLabelText("默认分支")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "添加节点" }));
+    fireEvent.click(screen.getByRole("button", { name: "添加循环节点" }));
+    fireEvent.click(pane as Element, { clientX: 800, clientY: 420 });
+    const loopButton = await screen.findByRole("button", { name: "循环" });
+    const loopNode = loopButton.closest(".react-flow__node");
+    expect(loopNode?.querySelector('.workflow-handle-right[data-handleid="continue"]')).toBeInTheDocument();
+    expect(loopNode?.querySelector('.workflow-handle-right[data-handleid="exit"]')).toBeInTheDocument();
+    expect(screen.getByLabelText("最大迭代次数")).toHaveAttribute("min", "1");
+    expect(screen.getByLabelText("最大迭代次数")).toHaveAttribute("max", "100");
+
+    fireEvent.click(screen.getByRole("button", { name: "添加节点" }));
+    fireEvent.click(screen.getByRole("button", { name: "添加输出节点" }));
+    fireEvent.click(pane as Element, { clientX: 840, clientY: 450 });
+    const placedOutputButton = await screen.findByRole("button", { name: "输出" });
+    expect(placedOutputButton.textContent).toContain("请配置输出变量");
+    const placedOutputNode = placedOutputButton.closest(".react-flow__node");
+    expect(placedOutputNode?.querySelector('.workflow-handle-left[data-handleid="left"]')).toBeInTheDocument();
+    expect(placedOutputNode?.querySelector('.workflow-handle-right[data-handleid="right"]')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("输出变量名")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "手模式" }));
     expect(screen.getByLabelText("工作流编辑器")).toHaveAttribute("data-canvas-mode", "pan");
@@ -417,9 +452,19 @@ describe("WorkflowPage", () => {
                     ]
                   }
                 },
-                { id: "node-llm", type: "llm", name: "LLM", status: "success" }
+                { id: "node-llm", type: "llm", name: "LLM", status: "success" },
+                {
+                  id: "node-output",
+                  type: "expose",
+                  name: "输出",
+                  status: "success",
+                  config: { outputVariables: [{ id: "answer", name: "answer", value: "node-llm.text" }] }
+                }
               ],
-              edges: [{ id: "edge-trigger-llm", source: "node-trigger", target: "node-llm" }]
+              edges: [
+                { id: "edge-trigger-llm", source: "node-trigger", target: "node-llm" },
+                { id: "edge-llm-output", source: "node-llm", target: "node-output" }
+              ]
             }
           ]
         };
@@ -457,13 +502,14 @@ describe("WorkflowPage", () => {
     );
     const saveCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT");
     const payload = JSON.parse(String(saveCall?.[1]?.body));
-    expect(payload.edges).toEqual([
+    expect(payload.edges).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: "edge-trigger-llm",
         source: "node-trigger",
         target: "node-llm"
       })
-    ]);
+    ]));
+    expect(payload.edges).toHaveLength(2);
   });
 
   it("selects workflow nodes and switches the inspector by node type", async () => {
@@ -621,7 +667,7 @@ describe("WorkflowPage", () => {
     expect(screen.queryByText("模型")).not.toBeInTheDocument();
     expect(screen.queryByText("知识库数量")).not.toBeInTheDocument();
     expect(screen.queryByText("最新运行")).not.toBeInTheDocument();
-    expect(screen.queryByText("输出")).not.toBeInTheDocument();
+    expect(within(screen.getByLabelText("节点配置")).queryByText("输出")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "添加输入字段" }));
     expect(await screen.findByRole("dialog", { name: "选择输入类型" })).toBeInTheDocument();
@@ -770,8 +816,8 @@ describe("WorkflowPage", () => {
                   status: "success",
                   config: { modelProviderId: "model_provider_local" }
                 },
-                { id: "node-output", type: "expose", name: "输出", status: "success" },
-                { id: "node-output-empty", type: "expose", name: "孤立输出", status: "success" }
+                { id: "node-output-empty", type: "expose", name: "孤立输出", status: "success" },
+                { id: "node-output", type: "expose", name: "输出", status: "success" }
               ],
               edges: [
                 { id: "edge-trigger-llm", source: "node-trigger", target: "node-llm", sourceHandle: "right", targetHandle: "left" },
@@ -824,9 +870,15 @@ describe("WorkflowPage", () => {
     expect(screen.getByLabelText("输出变量名")).toHaveValue("");
     expect(screen.getByLabelText("设置变量值")).toHaveValue("");
     expect(screen.queryByRole("option", { name: /LLM/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    expect(screen.getByText("输出节点“孤立输出”的变量名称和值不能为空，且名称必须唯一")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT")).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: "输出" }));
     expect(await screen.findByRole("heading", { name: "输出" })).toBeInTheDocument();
+    const outputNode = document.querySelector('[data-id="node-output"]');
+    expect(outputNode?.querySelector('.workflow-handle-left[data-handleid="left"]')).toBeInTheDocument();
+    expect(outputNode?.querySelector('.workflow-handle-right[data-handleid="right"]')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "添加输出变量" }));
     fireEvent.change(screen.getByLabelText("输出变量名"), { target: { value: "text" } });
     expect(screen.getByRole("option", { name: "LLM / text String" })).toBeInTheDocument();
@@ -835,7 +887,14 @@ describe("WorkflowPage", () => {
     expect(screen.getByRole("option", { name: "用户输入 / 问题 String" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("设置变量值"), { target: { value: "node-llm.text" } });
     expect(screen.getByText("LLM / text String")).toBeInTheDocument();
+    expect((screen.getByRole("button", { name: "输出" })).textContent).toContain("text → node-llm.text");
 
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    expect(screen.getByText("输出节点“孤立输出”的变量名称和值不能为空，且名称必须唯一")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT")).toBe(false);
+
+    const emptyOutputNode = document.querySelector('[data-id="node-output-empty"]');
+    fireEvent.click(within(emptyOutputNode as HTMLElement).getByRole("button", { name: "删除节点" }));
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -857,6 +916,15 @@ describe("WorkflowPage", () => {
         })
       ])
     );
+
+    const llmNode = document.querySelector('[data-id="node-llm"]');
+    const putCallsBeforeDeletingLlm = fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT").length;
+    fireEvent.click(within(llmNode as HTMLElement).getByRole("button", { name: "删除节点" }));
+    await waitFor(() => expect(screen.queryByRole("option", { name: "LLM / text String" })).not.toBeInTheDocument());
+    expect(screen.queryByRole("option", { name: "用户输入 / 问题 String" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    expect(screen.getByText("输出节点“输出”引用了不可达变量 node-llm.text")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT")).toHaveLength(putCallsBeforeDeletingLlm);
   });
 
   it("shows knowledge base configuration when selecting a retrieval node", async () => {
@@ -1178,11 +1246,46 @@ describe("WorkflowPage", () => {
                     userPrompt: "Review the answer",
                     retryOnFailure: false
                   }
+                },
+                {
+                  id: "node-condition",
+                  type: "condition",
+                  name: "条件",
+                  status: "success",
+                  config: { variable: "node-llm.text", operator: "contains", compareValue: "通过", defaultBranch: "default" }
+                },
+                {
+                  id: "node-loop-low",
+                  type: "loop",
+                  name: "循环下界",
+                  status: "success",
+                  config: { variable: "node-llm.text", operator: "not_empty", compareValue: "", maxIterations: 0 }
+                },
+                {
+                  id: "node-loop-high",
+                  type: "loop",
+                  name: "循环上界",
+                  status: "success",
+                  config: { variable: "node-llm.text", operator: "not_empty", compareValue: "", maxIterations: 999 }
+                },
+                {
+                  id: "node-expose",
+                  type: "expose",
+                  name: "输出",
+                  status: "success",
+                  config: { outputVariables: [{ id: "answer", name: "answer", value: "node-llm.text" }] }
                 }
               ],
               edges: [
                 { id: "edge-trigger-llm", source: "node-trigger", target: "node-llm", sourceHandle: "right", targetHandle: "left" },
-                { id: "edge-llm-review", source: "node-llm", target: "node-llm-review", sourceHandle: "right", targetHandle: "left" }
+                { id: "edge-llm-review", source: "node-llm", target: "node-llm-review", sourceHandle: "right", targetHandle: "left" },
+                { id: "edge-review-condition", source: "node-llm-review", target: "node-condition", sourceHandle: "right", targetHandle: "left" },
+                { id: "edge-condition-true", source: "node-condition", target: "node-loop-low", sourceHandle: "true", targetHandle: "left" },
+                { id: "edge-condition-default", source: "node-condition", target: "node-loop-low", sourceHandle: "default", targetHandle: "left" },
+                { id: "edge-loop-low-continue", source: "node-loop-low", target: "node-loop-high", sourceHandle: "continue", targetHandle: "left" },
+                { id: "edge-loop-low-exit", source: "node-loop-low", target: "node-loop-high", sourceHandle: "exit", targetHandle: "left" },
+                { id: "edge-loop-high-continue", source: "node-loop-high", target: "node-loop-high", sourceHandle: "continue", targetHandle: "left" },
+                { id: "edge-loop-high-exit", source: "node-loop-high", target: "node-expose", sourceHandle: "exit", targetHandle: "left" }
               ]
             }
           ]
@@ -1278,7 +1381,7 @@ describe("WorkflowPage", () => {
     expect(screen.queryByText("模型")).not.toBeInTheDocument();
     expect(screen.queryByText("知识库数量")).not.toBeInTheDocument();
     expect(screen.queryByText("最新运行")).not.toBeInTheDocument();
-    expect(screen.queryByText("输出")).not.toBeInTheDocument();
+    expect(within(screen.getByLabelText("节点配置")).queryByText("输出")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
@@ -1323,13 +1426,23 @@ describe("WorkflowPage", () => {
             userPrompt: "Review the answer",
             retryOnFailure: false
           })
-        })
+        }),
+        expect.objectContaining({
+          id: "node-condition",
+          config: expect.objectContaining({ variable: "node-llm.text", operator: "contains", compareValue: "通过", defaultBranch: "default" })
+        }),
+        expect.objectContaining({ id: "node-loop-low", config: expect.objectContaining({ maxIterations: 10 }) }),
+        expect.objectContaining({ id: "node-loop-high", config: expect.objectContaining({ maxIterations: 100 }) })
       ])
     );
-    expect(payload.edges).toEqual([
+    expect(payload.edges).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: "edge-trigger-llm", source: "node-trigger", target: "node-llm" }),
-      expect.objectContaining({ id: "edge-llm-review", source: "node-llm", target: "node-llm-review" })
-    ]);
+      expect.objectContaining({ id: "edge-llm-review", source: "node-llm", target: "node-llm-review" }),
+      expect.objectContaining({ id: "edge-condition-true", sourceHandle: "true" }),
+      expect.objectContaining({ id: "edge-condition-default", sourceHandle: "default" }),
+      expect.objectContaining({ id: "edge-loop-low-continue", sourceHandle: "continue" }),
+      expect.objectContaining({ id: "edge-loop-low-exit", sourceHandle: "exit" })
+    ]));
     expect(payload.viewport).toEqual({ x: 0, y: 0, zoom: 1 });
   });
 });

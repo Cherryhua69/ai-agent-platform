@@ -28,6 +28,7 @@ import { useModelProviders } from "../tools/useModelProviders";
 import { useCanvasConfig } from "./useCanvasConfig";
 import { useUpdateWorkflow } from "./useUpdateWorkflow";
 import { useWorkflows } from "./useWorkflows";
+import { getOutputVariables, getReachableUpstreamVariables, getWorkflowValidationError, type OutputVariable } from "./workflowVariables";
 
 const nodePositions = [
   { x: 220, y: 220 },
@@ -61,7 +62,15 @@ const LLM_DESCRIPTION = "AI 基于检索到的知识库内容结合用户问题�
 const defaultUserInputNode = fallbackNodes[0];
 
 type CanvasMode = "select" | "pan";
-type PendingPlacement = "llm" | "comment" | null;
+type PendingPlacement = "llm" | "comment" | "expose" | "condition" | "loop" | null;
+
+type BranchNodeConfig = {
+  variable: string;
+  operator: string;
+  compareValue: string;
+  defaultBranch?: string;
+  maxIterations?: number;
+};
 
 function getNodeTone(status: WorkflowNode["status"]) {
   if (status === "failed" || status === "blocked") {
@@ -127,7 +136,9 @@ function getNodeTypeLabel(type: WorkflowNode["type"]) {
     tool: "工具",
     human: "人工确认",
     expose: "回复",
-    comment: "注释"
+    comment: "注释",
+    condition: "条件",
+    loop: "循环"
   };
   return labels[type];
 }
@@ -142,6 +153,24 @@ function readString(value: unknown, fallback = "") {
 
 function readStringArray(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function getBranchNodeConfig(node: WorkflowNode): BranchNodeConfig {
+  return {
+    variable: readString(node.config?.variable),
+    operator: readString(node.config?.operator, node.type === "loop" ? "not_empty" : "eq"),
+    compareValue: readString(node.config?.compareValue),
+    defaultBranch: readString(node.config?.defaultBranch, "default"),
+    maxIterations: normalizeMaxIterations(node.config?.maxIterations)
+  };
+}
+
+function normalizeMaxIterations(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed === 0) {
+    return 10;
+  }
+  return Math.min(100, Math.max(1, Math.trunc(parsed)));
 }
 
 function getLlmConfig(node: WorkflowNode | undefined, fallbackModelProviderId = ""): LlmNodeConfig {
@@ -173,6 +202,7 @@ type WorkflowFlowNodeData = {
 function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
   const { node, canDelete, modelLabel, onDelete, onSelect } = data;
   const inputFields = node.type === "trigger" ? getInputFields(node) : [];
+  const outputVariables = node.type === "expose" ? getOutputVariables(node) : [];
 
   function handleDelete(event: MouseEvent<HTMLElement>) {
     event.stopPropagation();
@@ -256,6 +286,10 @@ function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
           <span className="workflow-model-chip">
             <span>{modelLabel || "未选择模型"}</span>
           </span>
+        ) : node.type === "expose" ? (
+          <span className="workflow-output-summary">
+            {outputVariables.length > 0 ? outputVariables.map((item) => `${item.name} → ${item.value}`).join("，") : "请配置输出变量"}
+          </span>
         ) : (
           <span>{node.description ?? getNodeTypeLabel(node.type)}</span>
         )}
@@ -265,7 +299,31 @@ function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
           ×
         </button>
       ) : null}
-      <Handle className="workflow-handle workflow-handle-right" id="right" position={Position.Right} style={{ zIndex: 3 }} type="source" />
+      {node.type === "condition" ? (
+        [...new Set(["true", readString(node.config?.defaultBranch, "default")])].map((handleId, index) => (
+          <Handle
+            className="workflow-handle workflow-handle-right"
+            id={handleId}
+            key={handleId}
+            position={Position.Right}
+            style={{ zIndex: 3, top: index === 0 ? "35%" : "70%" }}
+            type="source"
+          />
+        ))
+      ) : node.type === "loop" ? (
+        ["continue", "exit"].map((handleId, index) => (
+          <Handle
+            className="workflow-handle workflow-handle-right"
+            id={handleId}
+            key={handleId}
+            position={Position.Right}
+            style={{ zIndex: 3, top: index === 0 ? "35%" : "70%" }}
+            type="source"
+          />
+        ))
+      ) : node.type === "expose" ? null : (
+        <Handle className="workflow-handle workflow-handle-right" id="right" position={Position.Right} style={{ zIndex: 3 }} type="source" />
+      )}
     </>
   );
 }
@@ -469,11 +527,25 @@ export function WorkflowPage() {
     if (node.type === "retrieval") {
       return { knowledgeBaseIds };
     }
+    if (node.type === "loop") {
+      return {
+        ...(node.config ?? {}),
+        maxIterations: normalizeMaxIterations(node.config?.maxIterations)
+      };
+    }
     return node.config ?? {};
   }
 
   function handleSaveWorkflow() {
     if (!workflow) {
+      return;
+    }
+
+    const validationError = nodes.some((node) => node.type === "expose" && Array.isArray(node.config?.outputVariables))
+      ? getWorkflowValidationError(nodes, flowEdges)
+      : "";
+    if (validationError) {
+      setLayoutMessage(validationError);
       return;
     }
 
@@ -512,30 +584,21 @@ export function WorkflowPage() {
     );
   }
 
-  function handleAddLlmNode() {
-    setPendingPlacement("llm");
+  function handleAddNode(type: Exclude<PendingPlacement, null>) {
+    setPendingPlacement(type);
     setPlacementPreviewPosition(null);
     setIsNodeMenuOpen(false);
     setCanvasMode("select");
-    setLayoutMessage("点击画布放置 LLM 节点");
+    const labels = { llm: " LLM 节点", comment: "注释框", expose: "输出节点", condition: "条件节点", loop: "循环节点" };
+    setLayoutMessage(`点击画布放置${labels[type]}`);
+  }
+
+  function handleAddLlmNode() {
+    handleAddNode("llm");
   }
 
   function getUpstreamContextOptions(node: WorkflowNode) {
-    const directSourceIds = flowEdges.filter((edge) => edge.target === node.id).map((edge) => edge.source);
-    const candidates = nodes.filter((item) => directSourceIds.includes(item.id));
-
-    return candidates
-      .filter((item) => item.id !== node.id && item.type !== "comment")
-      .flatMap((item) => {
-        if (item.type === "trigger") {
-          return getInputFields(item).map((field) => ({
-            label: field.label,
-            variable: field.variable
-          }));
-        }
-
-        return [{ label: `${item.name} 输出`, variable: `${item.id}.text` }];
-      });
+    return getReachableUpstreamVariables(node.id, nodes, flowEdges);
   }
 
   function updateSelectedLlmConfig(config: Partial<LlmNodeConfig>) {
@@ -558,10 +621,7 @@ export function WorkflowPage() {
   }
 
   function handleAddComment() {
-    setPendingPlacement("comment");
-    setPlacementPreviewPosition(null);
-    setCanvasMode("select");
-    setLayoutMessage("点击画布放置注释框");
+    handleAddNode("comment");
   }
 
   function handleAutoLayout() {
@@ -579,8 +639,8 @@ export function WorkflowPage() {
       return;
     }
 
-    const isLlm = pendingPlacement === "llm";
-    const nodeSize = isLlm ? flowNodeSize : { width: 260, height: 140 };
+    const isComment = pendingPlacement === "comment";
+    const nodeSize = isComment ? { width: 260, height: 140 } : flowNodeSize;
     const canvasRect = event.currentTarget.getBoundingClientRect();
     const pointerPosition = reactFlowInstance?.screenToFlowPosition({ x: event.clientX, y: event.clientY }) ?? {
       x: event.clientX - canvasRect.left,
@@ -591,21 +651,40 @@ export function WorkflowPage() {
       y: pointerPosition.y - nodeSize.height / 2
     };
     const id = `local-${pendingPlacement}-${Date.now()}`;
-    const nextNode: WorkflowNode = isLlm
-      ? {
+    const nextNode: WorkflowNode =
+      pendingPlacement === "llm"
+        ? {
           id,
           type: "llm",
           name: `LLM ${nodes.filter((node) => node.type === "llm").length + 1}`,
           status: "success",
           description: LLM_DESCRIPTION
-        }
-      : {
+          }
+        : pendingPlacement === "comment"
+          ? {
           id,
           type: "comment",
           name: "注释",
           status: "success",
           description: "在这里记录流程说明、测试假设或团队协作备注。"
-        };
+            }
+          : pendingPlacement === "expose"
+            ? { id, type: "expose", name: "输出", status: "success", config: { outputVariables: [] } }
+            : pendingPlacement === "condition"
+              ? {
+                  id,
+                  type: "condition",
+                  name: "条件",
+                  status: "success",
+                  config: { variable: "", operator: "eq", compareValue: "", defaultBranch: "default" }
+                }
+              : {
+                  id,
+                  type: "loop",
+                  name: "循环",
+                  status: "success",
+                  config: { variable: "", operator: "not_empty", compareValue: "", maxIterations: 10 }
+                };
 
     setLocalNodes((currentNodes) => [...currentNodes, nextNode]);
     setFlowNodes((currentNodes) => [
@@ -741,6 +820,22 @@ export function WorkflowPage() {
     });
   }
 
+  function updateOutputVariables(outputVariables: OutputVariable[]) {
+    updateSelectedNodeConfig({ outputVariables });
+  }
+
+  function handleAddOutputVariable() {
+    updateOutputVariables([...getOutputVariables(selectedNode), { id: `output-${Date.now()}`, name: "", value: "" }]);
+  }
+
+  function handleUpdateOutputVariable(index: number, field: keyof OutputVariable, value: string) {
+    updateOutputVariables(getOutputVariables(selectedNode).map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)));
+  }
+
+  function handleDeleteOutputVariable(index: number) {
+    updateOutputVariables(getOutputVariables(selectedNode).filter((_, itemIndex) => itemIndex !== index));
+  }
+
   function renderNodeInspector() {
     if (!selectedNode) {
       return <p className="empty-note">请选择一个节点进行配置。</p>;
@@ -812,6 +907,106 @@ export function WorkflowPage() {
       );
     }
 
+    if (selectedNode.type === "expose") {
+      const outputVariables = getOutputVariables(selectedNode);
+      const upstreamVariables = getUpstreamContextOptions(selectedNode);
+      return (
+        <section className="workflow-output-config" aria-label="输出变量">
+          <div className="workflow-output-header">
+            <strong>输出变量</strong>
+            <span aria-label="必填">*</span>
+            <button aria-label="添加输出变量" onClick={handleAddOutputVariable} type="button">
+              <Plus aria-hidden="true" size={16} />
+            </button>
+          </div>
+          {outputVariables.map((item, index) => (
+            <div className="workflow-output-row" key={item.id}>
+              <input
+                aria-label="输出变量名"
+                onChange={(event) => handleUpdateOutputVariable(index, "name", event.target.value)}
+                placeholder="变量名"
+                required
+                value={item.name}
+              />
+              <select
+                aria-label="设置变量值"
+                onChange={(event) => handleUpdateOutputVariable(index, "value", event.target.value)}
+                required
+                value={item.value}
+              >
+                <option value="">请选择上游变量</option>
+                {upstreamVariables.map((variable) => (
+                  <option key={variable.value} value={variable.value}>
+                    {variable.nodeName} / {variable.name} {variable.valueType}
+                  </option>
+                ))}
+              </select>
+              <button aria-label={`删除输出变量 ${index + 1}`} onClick={() => handleDeleteOutputVariable(index)} type="button">
+                ×
+              </button>
+            </div>
+          ))}
+          {outputVariables.length === 0 ? <p className="empty-note">点击加号添加输出变量。</p> : null}
+        </section>
+      );
+    }
+
+    if (selectedNode.type === "condition" || selectedNode.type === "loop") {
+      const config = getBranchNodeConfig(selectedNode);
+      const upstreamVariables = getUpstreamContextOptions(selectedNode);
+      return (
+        <div className="field-stack workflow-branch-config">
+          <label className="field-stack">
+            <span>变量</span>
+            <select aria-label="条件变量" value={config.variable} onChange={(event) => updateSelectedNodeConfig({ variable: event.target.value })}>
+              <option value="">请选择上游变量</option>
+              {upstreamVariables.map((variable) => (
+                <option key={variable.value} value={variable.value}>
+                  {variable.nodeName} / {variable.name} {variable.valueType}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field-stack">
+            <span>运算符</span>
+            <select aria-label="运算符" value={config.operator} onChange={(event) => updateSelectedNodeConfig({ operator: event.target.value })}>
+              <option value="eq">等于</option>
+              <option value="neq">不等于</option>
+              <option value="contains">包含</option>
+              <option value="gt">大于</option>
+              <option value="lt">小于</option>
+              <option value="empty">为空</option>
+              <option value="not_empty">不为空</option>
+            </select>
+          </label>
+          <label className="field-stack">
+            <span>比较值</span>
+            <input aria-label="比较值" value={config.compareValue} onChange={(event) => updateSelectedNodeConfig({ compareValue: event.target.value })} />
+          </label>
+          {selectedNode.type === "condition" ? (
+            <label className="field-stack">
+              <span>默认分支</span>
+              <select aria-label="默认分支" value={config.defaultBranch} onChange={(event) => updateSelectedNodeConfig({ defaultBranch: event.target.value })}>
+                <option value="default">默认出口</option>
+              </select>
+            </label>
+          ) : (
+            <label className="field-stack">
+              <span>最大迭代次数</span>
+              <input
+                aria-label="最大迭代次数"
+                max={100}
+                min={1}
+                type="number"
+                value={config.maxIterations}
+                onChange={(event) => updateSelectedNodeConfig({ maxIterations: Math.min(100, Math.max(1, Number(event.target.value) || 1)) })}
+              />
+            </label>
+          )}
+        </div>
+      );
+    }
+
     if (selectedNode.type === "retrieval") {
       return (
         <div className="field-stack">
@@ -869,8 +1064,8 @@ export function WorkflowPage() {
               >
                 <option value="">不选择上游输出变量</option>
                 {contextOptions.map((option) => (
-                  <option key={option.variable} value={option.variable}>
-                    {option.label} · {option.variable}
+                  <option key={option.value} value={option.value}>
+                    {option.name} · {option.value}
                   </option>
                 ))}
               </select>
@@ -1048,6 +1243,18 @@ export function WorkflowPage() {
                 <strong>添加 LLM 节点</strong>
                 <span>{LLM_DESCRIPTION}</span>
               </button>
+              <button aria-label="添加输出节点" onClick={() => handleAddNode("expose")} type="button">
+                <strong>输出</strong>
+                <span>配置工作流对外暴露的输出变量</span>
+              </button>
+              <button aria-label="添加条件节点" onClick={() => handleAddNode("condition")} type="button">
+                <strong>条件</strong>
+                <span>根据上游变量选择执行分支</span>
+              </button>
+              <button aria-label="添加循环节点" onClick={() => handleAddNode("loop")} type="button">
+                <strong>循环</strong>
+                <span>按条件重复执行并限制迭代次数</span>
+              </button>
             </div>
           ) : null}
         </nav>
@@ -1085,12 +1292,22 @@ export function WorkflowPage() {
           </ReactFlow>
           {pendingPlacement && placementPreviewPosition ? (
             <div
-              aria-label={pendingPlacement === "llm" ? "待放置 LLM 节点" : "待放置注释框"}
+              aria-label={`待放置${pendingPlacement === "llm" ? " LLM 节点" : pendingPlacement === "comment" ? "注释框" : pendingPlacement === "expose" ? "输出节点" : pendingPlacement === "condition" ? "条件节点" : "循环节点"}`}
               className={`workflow-placement-preview workflow-placement-preview-${pendingPlacement}`}
               style={{ left: placementPreviewPosition.x, top: placementPreviewPosition.y }}
             >
-              <strong>{pendingPlacement === "llm" ? `LLM ${nodes.filter((node) => node.type === "llm").length + 1}` : "注释"}</strong>
-              <span>{pendingPlacement === "llm" ? LLM_DESCRIPTION : "记录流程说明、测试假设或协作备注。"}</span>
+              <strong>
+                {pendingPlacement === "llm"
+                  ? `LLM ${nodes.filter((node) => node.type === "llm").length + 1}`
+                  : pendingPlacement === "comment"
+                    ? "注释"
+                    : pendingPlacement === "expose"
+                      ? "输出"
+                      : pendingPlacement === "condition"
+                        ? "条件"
+                        : "循环"}
+              </strong>
+              <span>{pendingPlacement === "llm" ? LLM_DESCRIPTION : "点击画布完成放置。"}</span>
             </div>
           ) : null}
         </section>
@@ -1104,15 +1321,15 @@ export function WorkflowPage() {
               <h2>
                 {selectedNode?.type === "trigger"
                   ? "用户输入"
-                  : selectedNode?.type === "llm"
+                  : selectedNode?.type === "llm" || selectedNode?.type === "expose"
                     ? selectedNode.name
                     : `配置：${selectedNode?.name ?? "未选择节点"}`}
               </h2>
-              {selectedNode?.type === "trigger" ? null : <span>{selectedNode?.type ?? "node"}</span>}
+              {selectedNode?.type === "trigger" || selectedNode?.type === "expose" ? null : <span>{selectedNode?.type ?? "node"}</span>}
               {renderNodeInspector()}
             </div>
 
-            {selectedNode?.type === "trigger" || selectedNode?.type === "llm" ? null : (
+            {selectedNode?.type === "trigger" || selectedNode?.type === "llm" || selectedNode?.type === "expose" ? null : (
               <>
                 <KeyValueList
                   items={[
