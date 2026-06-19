@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import { Bot, FileInput, Hand, Home, MessageSquarePlus, MousePointer2, Plus, RotateCcw, Sparkles, X } from "lucide-react";
 import {
   Background,
@@ -63,6 +63,7 @@ const defaultUserInputNode = fallbackNodes[0];
 
 type CanvasMode = "select" | "pan";
 type PendingPlacement = "llm" | "comment" | "expose" | "condition" | "loop" | null;
+type PreviewMessage = { id: string; role: "user" | "assistant" | "error"; content: string };
 
 type BranchNodeConfig = {
   variable: string;
@@ -369,7 +370,7 @@ function createFlowNodes(
     return {
       id: node.id,
       type: "workflow",
-      position: existingNode?.position ?? nodePositions[index] ?? { x: 220 + index * 280, y: 220 + (index % 2) * 130 },
+      position: existingNode?.position ?? node.position ?? nodePositions[index] ?? { x: 220 + index * 280, y: 220 },
       width: isComment ? 260 : flowNodeSize.width,
       height: isComment ? 140 : flowNodeSize.height,
       measured: isComment ? { width: 260, height: 140 } : flowNodeSize,
@@ -403,7 +404,6 @@ export function WorkflowPage() {
     selectedNodeId,
     modelProviderId,
     knowledgeBaseIds,
-    userInput,
     setSelectedNodeId,
     setModelProviderId,
     toggleKnowledgeBaseId,
@@ -423,15 +423,20 @@ export function WorkflowPage() {
   const [placementPreviewPosition, setPlacementPreviewPosition] = useState<{ x: number; y: number } | null>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewMessages, setPreviewMessages] = useState<PreviewMessage[]>([]);
+  const [previewTextValues, setPreviewTextValues] = useState<Record<string, string>>({});
+  const [previewFileValues, setPreviewFileValues] = useState<Record<string, File[]>>({});
   const [isInputTypeMenuOpen, setIsInputTypeMenuOpen] = useState(false);
   const agents = agentsQuery.data ?? emptyAgents;
   const workflows = workflowsQuery.data ?? emptyWorkflows;
-  const workflow = workflows.find((item) => item.id === selectedWorkflowId) ?? workflows.find((item) => item.agentId === selectedAgentId) ?? workflows[0];
+  const selectedWorkflow = workflows.find((item) => item.id === selectedWorkflowId) ?? workflows.find((item) => item.agentId === selectedAgentId);
+  const workflow = selectedWorkflow ?? (!selectedWorkflowId && !selectedAgentId ? workflows[0] : undefined);
   const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? agents.find((agent) => agent.workflowId === workflow?.id);
   const baseNodes = useMemo(() => ensureUserInputFirst(workflow?.nodes ?? fallbackNodes), [workflow?.nodes]);
-  const nodes = useMemo(
-    () =>
-      [...baseNodes, ...localNodes]
+  const nodes = useMemo(() => {
+    const uniqueNodes = [...new Map([...baseNodes, ...localNodes].map((node) => [node.id, node])).values()];
+    return uniqueNodes
         .filter((node) => !removedNodeIds.includes(node.id))
         .map((node) => ({
           ...node,
@@ -440,13 +445,27 @@ export function WorkflowPage() {
             ...(node.config ?? {}),
             ...(nodeConfigOverrides[node.id] ?? {})
           }
-        })),
-    [baseNodes, localNodes, nodeConfigOverrides, nodeDescriptionOverrides, removedNodeIds]
-  );
+        }));
+  }, [baseNodes, localNodes, nodeConfigOverrides, nodeDescriptionOverrides, removedNodeIds]);
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? nodes[0];
+  const previewInputFields = useMemo<WorkflowInputField[]>(() => {
+    const configuredFields = getInputFields(nodes.find((node) => node.type === "trigger"));
+    return configuredFields.length > 0
+      ? configuredFields
+      : [{ id: "message", label: "消息", variable: "userinput.message", kind: "text", required: true }];
+  }, [nodes]);
+  const isPreviewReady = previewInputFields.every((field) => {
+    if (!field.required) {
+      return true;
+    }
+    return field.kind === "text"
+      ? Boolean(previewTextValues[field.id]?.trim())
+      : Boolean(previewFileValues[field.id]?.length);
+  });
   const handleSelectNode = useCallback(
     (nodeId: string) => {
       setSelectedNodeId(nodeId);
+      setIsPreviewOpen(false);
       setIsInspectorOpen(true);
     },
     [setSelectedNodeId]
@@ -500,6 +519,9 @@ export function WorkflowPage() {
   }, [handleDeleteNode, handleSelectNode, latestRun, modelProviderId, modelProviders, nodes, selectedNode?.id, setFlowNodes]);
 
   useEffect(() => {
+    setFlowNodes(
+      createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, [], modelProviders, modelProviderId)
+    );
     setFlowEdges(createFlowEdges(workflow?.edges));
     hasLoadedWorkflowRef.current = false;
   }, [setFlowEdges, workflow?.edges, workflow?.id]);
@@ -514,16 +536,64 @@ export function WorkflowPage() {
   const selectedModel = modelProviders.find((provider) => provider.id === (selectedLlmConfig?.modelProviderId || modelProviderId));
   const failedStep = latestRun?.steps.find((step) => step.status === "failed");
 
-  function handleRunDebug() {
+  function handleOpenPreview() {
+    setIsInspectorOpen(false);
+    setIsPreviewOpen(true);
+  }
+
+  function handleClosePreview() {
+    setIsPreviewOpen(false);
+    setPreviewMessages([]);
+    setPreviewTextValues({});
+    setPreviewFileValues({});
+  }
+
+  function handleRunDebug(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!workflow || !isPreviewReady || simulateAgentRun.isPending) {
+      return;
+    }
+
+    const textFields = previewInputFields.filter((field) => field.kind === "text");
+    const textParts = textFields
+      .map((field) => ({ field, value: previewTextValues[field.id]?.trim() ?? "" }))
+      .filter(({ value }) => Boolean(value));
+    const userInputValue = textParts.map(({ value }) => value).join("\n");
+    const visibleText = textParts.length <= 1
+      ? userInputValue
+      : textParts.map(({ field, value }) => `${field.label}：${value}`).join("\n");
+    const fileNames = previewInputFields
+      .filter((field) => field.kind !== "text")
+      .flatMap((field) => previewFileValues[field.id] ?? [])
+      .map((file) => file.name);
+    const messageContent = [visibleText, fileNames.length > 0 ? `附件：${fileNames.join("、")}` : ""].filter(Boolean).join("\n");
+    const messageId = `${Date.now()}-${previewMessages.length}`;
+
+    setPreviewMessages((messages) => [...messages, { id: `${messageId}-user`, role: "user", content: messageContent }]);
+    setPreviewTextValues({});
+    setPreviewFileValues({});
+    event.currentTarget.reset();
     simulateAgentRun.mutate(
       {
         agentId: workflow?.agentId ?? "agent-after-sale",
-        userInput,
+        userInput: userInputValue || messageContent,
         modelProviderId: modelProviderId || undefined,
         knowledgeBaseIds
       },
       {
-        onSuccess: (run) => setLatestRun(run)
+        onSuccess: (run) => {
+          setLatestRun(run);
+          setPreviewMessages((messages) => [
+            ...messages,
+            { id: `${messageId}-assistant`, role: "assistant", content: run.finalOutput ?? "运行完成" }
+          ]);
+        },
+        onError: () => {
+          setPreviewMessages((messages) => [
+            ...messages,
+            { id: `${messageId}-error`, role: "error", content: "运行失败，请检查模型与工作流配置后重试。" }
+          ]);
+        }
       }
     );
   }
@@ -648,12 +718,19 @@ export function WorkflowPage() {
   }
 
   function handleAutoLayout() {
-    setFlowNodes((currentNodes) =>
-      currentNodes.map((node, index) => ({
-        ...node,
-        position: nodePositions[index] ?? { x: 220 + index * 280, y: 220 + (index % 2) * 130 }
-      }))
-    );
+    setFlowNodes((currentNodes) => {
+      let layoutIndex = 0;
+      return currentNodes.map((node) => {
+        const workflowNode = node.data.node as WorkflowNode;
+        if (workflowNode.type === "comment") {
+          return node;
+        }
+
+        const position = { x: 220 + layoutIndex * 280, y: 220 };
+        layoutIndex += 1;
+        return { ...node, position };
+      });
+    });
     setLayoutMessage("已自动整理节点");
     markWorkflowDirty();
   }
@@ -1295,15 +1372,11 @@ export function WorkflowPage() {
 
         <section className="workflow-canvas" aria-label="工作流画布">
           <div className="workflow-canvas-actions" aria-label="画布运行操作">
-            <button aria-label="测试运行" className="workflow-run-button" disabled={simulateAgentRun.isPending} onClick={handleRunDebug} type="button">
+            <button aria-label="测试运行" className="workflow-run-button" onClick={handleOpenPreview} type="button">
               <span aria-hidden="true">▷</span>
-              {simulateAgentRun.isPending ? "运行中..." : "测试运行"}
-              <kbd>Alt</kbd>
-              <kbd>R</kbd>
+              测试运行
             </button>
-            <button className="workflow-icon-action" aria-label="环境变量" type="button">ENV</button>
-            <button className="workflow-icon-action" aria-label="关闭调试" type="button">×</button>
-            <button aria-label="发布" className="workflow-publish-button" type="button">发布⌄</button>
+            <button aria-label="发布" className="workflow-publish-button" type="button">发布</button>
           </div>
           <ReactFlow
             connectOnClick={false}
@@ -1356,45 +1429,106 @@ export function WorkflowPage() {
           ) : null}
         </section>
 
+        {isPreviewOpen ? (
+          <aside className="inspector-panel workflow-preview-panel" aria-label="测试预览">
+            <header className="workflow-preview-header">
+              <h2>预览</h2>
+              <button aria-label="关闭预览" className="inspector-close" onClick={handleClosePreview} title="关闭预览" type="button">
+                <X aria-hidden="true" />
+              </button>
+            </header>
+
+            <div aria-label="对话消息" className="workflow-preview-messages">
+              {previewMessages.length === 0 ? (
+                <div className="workflow-preview-empty">
+                  <Bot aria-hidden="true" />
+                  <p>填写下方内容，开始测试工作流。</p>
+                </div>
+              ) : (
+                previewMessages.map((message) => (
+                  <div className={`workflow-preview-message ${message.role}`} key={message.id}>
+                    {message.content.split("\n").map((line, index) => <p key={`${message.id}-${index}`}>{line}</p>)}
+                  </div>
+                ))
+              )}
+              {simulateAgentRun.isPending ? <div className="workflow-preview-message assistant pending">正在生成...</div> : null}
+            </div>
+
+            <form className="workflow-preview-composer" onSubmit={handleRunDebug}>
+              <div className="workflow-preview-fields">
+                {previewInputFields.map((field) => (
+                  <label className="workflow-preview-field" key={field.id}>
+                    <span>{field.label}{field.required ? <em>必填</em> : null}</span>
+                    {field.kind === "text" ? (
+                      <textarea
+                        aria-label={field.label}
+                        onChange={(event) => setPreviewTextValues((values) => ({ ...values, [field.id]: event.target.value }))}
+                        placeholder={`请输入${field.label}`}
+                        rows={2}
+                        value={previewTextValues[field.id] ?? ""}
+                      />
+                    ) : (
+                      <input
+                        aria-label={field.label}
+                        multiple={field.kind === "file[]"}
+                        onChange={(event) => setPreviewFileValues((values) => ({
+                          ...values,
+                          [field.id]: Array.from(event.target.files ?? [])
+                        }))}
+                        type="file"
+                      />
+                    )}
+                  </label>
+                ))}
+              </div>
+              <button aria-label="发送" className="workflow-preview-send" disabled={!isPreviewReady || simulateAgentRun.isPending || !workflow} type="submit">
+                {simulateAgentRun.isPending ? "生成中..." : "发送"}
+              </button>
+            </form>
+          </aside>
+        ) : null}
+
         {isInspectorOpen ? (
           <aside className="inspector-panel" aria-label="节点配置">
             <button aria-label="关闭节点配置" className="inspector-close" onClick={() => setIsInspectorOpen(false)} title="关闭节点配置" type="button">
               <X aria-hidden="true" />
             </button>
-            <div className="inspector-section">
-              <h2>
-                {selectedNode?.type === "trigger"
-                  ? "用户输入"
-                  : selectedNode?.type === "llm" || selectedNode?.type === "expose"
-                    ? selectedNode.name
-                    : `配置：${selectedNode?.name ?? "未选择节点"}`}
-              </h2>
-              {selectedNode?.type === "trigger" || selectedNode?.type === "expose" ? null : <span>{selectedNode?.type ?? "node"}</span>}
-              {renderNodeInspector()}
-            </div>
+            <div className="inspector-content">
+              <div className="inspector-section">
+                <h2>
+                  {selectedNode?.type === "trigger"
+                    ? "用户输入"
+                    : selectedNode?.type === "llm" || selectedNode?.type === "expose"
+                      ? selectedNode.name
+                      : `配置：${selectedNode?.name ?? "未选择节点"}`}
+                </h2>
+                {selectedNode?.type === "trigger" || selectedNode?.type === "expose" ? null : <span>{selectedNode?.type ?? "node"}</span>}
+                {renderNodeInspector()}
+              </div>
 
-            {selectedNode?.type === "trigger" || selectedNode?.type === "llm" || selectedNode?.type === "expose" ? null : (
-              <>
-                <KeyValueList
-                  items={[
-                    ["选中节点", selectedNode?.name ?? "未选择"],
-                    ["模型", selectedModel ? selectedModel.model : "未选择"],
-                    ["知识库数量", String(knowledgeBaseIds.length)],
-                    ["最新运行", latestRun ? latestRun.id : "等待运行调试"],
-                    ["输出", latestRun?.finalOutput ? "已生成 finalOutput" : "运行调试后生成 finalOutput"]
-                  ]}
-                />
-                {latestRun?.finalOutput ? (
-                  <div className="run-output">
-                    <strong>智能体调用结果</strong>
-                    <p>{latestRun.finalOutput}</p>
-                    <span>{failedStep ? `失败步骤：${failedStep.title}` : "全部步骤通过"}</span>
-                  </div>
-                ) : null}
-              </>
-            )}
-            {simulateAgentRun.isError ? <p className="inline-error">运行调试失败，请检查模型 API 配置。</p> : null}
-            {updateWorkflow.isError ? <p className="inline-error">保存失败，请稍后重试。</p> : null}
+              {selectedNode?.type === "trigger" || selectedNode?.type === "llm" || selectedNode?.type === "expose" ? null : (
+                <>
+                  <KeyValueList
+                    items={[
+                      ["选中节点", selectedNode?.name ?? "未选择"],
+                      ["模型", selectedModel ? selectedModel.model : "未选择"],
+                      ["知识库数量", String(knowledgeBaseIds.length)],
+                      ["最新运行", latestRun ? latestRun.id : "等待运行调试"],
+                      ["输出", latestRun?.finalOutput ? "已生成 finalOutput" : "运行调试后生成 finalOutput"]
+                    ]}
+                  />
+                  {latestRun?.finalOutput ? (
+                    <div className="run-output">
+                      <strong>智能体调用结果</strong>
+                      <p>{latestRun.finalOutput}</p>
+                      <span>{failedStep ? `失败步骤：${failedStep.title}` : "全部步骤通过"}</span>
+                    </div>
+                  ) : null}
+                </>
+              )}
+              {simulateAgentRun.isError ? <p className="inline-error">运行调试失败，请检查模型 API 配置。</p> : null}
+              {updateWorkflow.isError ? <p className="inline-error">保存失败，请稍后重试。</p> : null}
+            </div>
           </aside>
         ) : null}
       </div>

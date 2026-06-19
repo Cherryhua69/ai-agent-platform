@@ -425,6 +425,50 @@ describe("WorkflowPage", () => {
     expect(document.querySelector('[data-id="node-output"]')).not.toBeInTheDocument();
   });
 
+  it("never falls back to another agent workflow when the selected workflow is missing", async () => {
+    useCanvasConfig.setState({
+      selectedAgentId: "agent-missing-workflow",
+      selectedWorkflowId: "flow-agent-missing-workflow"
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/workflows")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "flow-agent-other",
+              agentId: "agent-other",
+              name: "Other agent workflow",
+              status: "draft",
+              toolHealthStatus: "online",
+              nodes: [{ id: "node-other-trigger", type: "trigger", name: "Other agent input", status: "success" }],
+              edges: []
+            }
+          ]
+        };
+      }
+
+      if (url.endsWith("/api/model-providers") || url.endsWith("/api/knowledge-bases") || url.endsWith("/api/agents")) {
+        return { ok: true, json: async () => [] };
+      }
+
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<WorkflowPage />, { wrapper: createWrapper() });
+
+    expect(await screen.findByRole("button", { name: "用户输入" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Other agent input" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "用户输入" }));
+    fireEvent.change(screen.getByLabelText("添加描述"), { target: { value: "只属于缺失工作流智能体" } });
+
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+    expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/api/workflows/flow-agent-other") && init?.method === "PUT")).toBe(false);
+  });
+
   it("loads persisted workflow edges into the canvas state", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -511,6 +555,152 @@ describe("WorkflowPage", () => {
     expect(payload.edges).toHaveLength(2);
   });
 
+  it("restores persisted node positions when reopening a workflow", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/workflows")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "workflow-positioned",
+              agentId: "agent-positioned",
+              name: "Positioned workflow",
+              status: "ready",
+              toolHealthStatus: "online",
+              nodes: [
+                { id: "node-trigger", type: "trigger", name: "用户输入", status: "success", position: { x: 37, y: 91 } },
+                { id: "node-llm", type: "llm", name: "LLM", status: "success", position: { x: 481, y: 163 } }
+              ],
+              edges: []
+            }
+          ]
+        };
+      }
+
+      if (url.endsWith("/api/model-providers") || url.endsWith("/api/knowledge-bases") || url.endsWith("/api/agents")) {
+        return { ok: true, json: async () => [] };
+      }
+
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<WorkflowPage />, { wrapper: createWrapper() });
+
+    await screen.findByRole("button", { name: "LLM" });
+    expect(document.querySelector('[data-id="node-trigger"]')?.getAttribute("style")).toContain("translate(37px,91px)");
+    expect(document.querySelector('[data-id="node-llm"]')?.getAttribute("style")).toContain("translate(481px,163px)");
+  });
+
+  it("auto-arranges non-comment nodes from left to right and preserves comment positions", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/workflows")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "workflow-layout",
+              agentId: "agent-layout",
+              name: "Layout workflow",
+              status: "ready",
+              toolHealthStatus: "online",
+              nodes: [
+                { id: "node-trigger", type: "trigger", name: "用户输入", status: "success", position: { x: 10, y: 20 } },
+                { id: "node-comment", type: "comment", name: "说明", status: "success", position: { x: 900, y: 500 } },
+                { id: "node-llm", type: "llm", name: "LLM", status: "success", position: { x: 400, y: 300 } },
+                { id: "node-output", type: "expose", name: "输出", status: "success", position: { x: 700, y: 420 } }
+              ],
+              edges: []
+            }
+          ]
+        };
+      }
+
+      if (url.endsWith("/api/model-providers") || url.endsWith("/api/knowledge-bases") || url.endsWith("/api/agents")) {
+        return { ok: true, json: async () => [] };
+      }
+
+      if (init?.method === "PUT" && url.endsWith("/api/workflows/workflow-layout")) {
+        return { ok: true, json: async () => ({ id: "workflow-layout", agentId: "agent-layout", ...JSON.parse(String(init.body)) }) };
+      }
+
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<WorkflowPage />, { wrapper: createWrapper() });
+    await screen.findByRole("button", { name: "LLM" });
+
+    fireEvent.click(screen.getByRole("button", { name: "自动整理节点" }));
+
+    expect(document.querySelector('[data-id="node-trigger"]')?.getAttribute("style")).toContain("translate(220px,220px)");
+    expect(document.querySelector('[data-id="node-llm"]')?.getAttribute("style")).toContain("translate(500px,220px)");
+    expect(document.querySelector('[data-id="node-output"]')?.getAttribute("style")).toContain("translate(780px,220px)");
+    expect(document.querySelector('[data-id="node-comment"]')?.getAttribute("style")).toContain("translate(900px,500px)");
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/workflows/workflow-layout", expect.objectContaining({ method: "PUT" })));
+    const saveCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith("/api/workflows/workflow-layout") && init?.method === "PUT");
+    const payload = JSON.parse(String(saveCall?.[1]?.body));
+    expect(payload.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "node-trigger", position: { x: 220, y: 220 } }),
+      expect.objectContaining({ id: "node-llm", position: { x: 500, y: 220 } }),
+      expect.objectContaining({ id: "node-output", position: { x: 780, y: 220 } }),
+      expect.objectContaining({ id: "node-comment", position: { x: 900, y: 500 } })
+    ]));
+  });
+
+  it("deduplicates repeated node ids before rendering and saving", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/workflows") && !init?.method) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "workflow-duplicated",
+              agentId: "agent-duplicated",
+              name: "Duplicated workflow",
+              status: "ready",
+              toolHealthStatus: "online",
+              nodes: [
+                { id: "node-trigger", type: "trigger", name: "用户输入", status: "success", position: { x: 20, y: 20 } },
+                { id: "node-llm", type: "llm", name: "LLM", status: "success", position: { x: 400, y: 200 } },
+                { id: "node-llm", type: "llm", name: "LLM", status: "success", position: { x: 400, y: 200 } }
+              ],
+              edges: []
+            }
+          ]
+        };
+      }
+
+      if (url.endsWith("/api/model-providers") || url.endsWith("/api/knowledge-bases") || url.endsWith("/api/agents")) {
+        return { ok: true, json: async () => [] };
+      }
+
+      if (init?.method === "PUT" && url.endsWith("/api/workflows/workflow-duplicated")) {
+        return { ok: true, json: async () => ({ id: "workflow-duplicated", agentId: "agent-duplicated", ...JSON.parse(String(init.body)) }) };
+      }
+
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<WorkflowPage />, { wrapper: createWrapper() });
+    expect(await screen.findAllByRole("button", { name: "LLM" })).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "自动整理节点" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/workflows/workflow-duplicated", expect.objectContaining({ method: "PUT" })));
+
+    const saveCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith("/api/workflows/workflow-duplicated") && init?.method === "PUT");
+    const payload = JSON.parse(String(saveCall?.[1]?.body));
+    expect(payload.nodes.map((node: { id: string }) => node.id)).toEqual(["node-trigger", "node-llm"]);
+  });
+
   it("selects workflow nodes and switches the inspector by node type", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -580,7 +770,7 @@ describe("WorkflowPage", () => {
     expect(screen.getByLabelText("模型配置")).toBeInTheDocument();
   });
 
-  it("shows canvas run and publish actions while auto-saving workflow edits", async () => {
+  it("keeps only run and publish actions at the canvas top right while auto-saving workflow edits", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
 
@@ -619,11 +809,17 @@ describe("WorkflowPage", () => {
 
     render(<WorkflowPage />, { wrapper: createWrapper() });
 
+    const canvasActions = screen.getByLabelText("画布运行操作");
+    expect(within(canvasActions).getByRole("button", { name: "测试运行" })).toBeInTheDocument();
+    expect(within(canvasActions).getByRole("button", { name: "发布" })).toHaveTextContent(/^发布$/);
+    expect(screen.queryByRole("button", { name: "环境变量" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "关闭调试" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "用户输入" }));
+    const inspector = screen.getByRole("complementary", { name: "节点配置" });
     expect(screen.queryByRole("button", { name: "保存" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "运行调试" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "测试运行" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "发布" })).toBeInTheDocument();
+    expect(within(inspector).queryByRole("button", { name: "测试运行" })).not.toBeInTheDocument();
+    expect(within(inspector).queryByRole("button", { name: "发布" })).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("添加描述"), { target: { value: "自动保存描述" } });
 
@@ -1034,7 +1230,8 @@ describe("WorkflowPage", () => {
     expect(screen.getByLabelText<HTMLInputElement>("After-sale policy base").checked).toBe(true);
   });
 
-  it("runs the canvas debug flow with configured model and knowledge bases", async () => {
+  it("opens a dynamic chat preview and supports multi-turn test runs", async () => {
+    let runCount = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
 
@@ -1049,7 +1246,19 @@ describe("WorkflowPage", () => {
               status: "blocked",
               toolHealthStatus: "degraded",
               nodes: [
-                { id: "node-trigger", type: "trigger", name: "User request", status: "success" },
+                {
+                  id: "node-trigger",
+                  type: "trigger",
+                  name: "User request",
+                  status: "success",
+                  config: {
+                    inputFields: [
+                      { id: "question", label: "问题", variable: "userinput.question", kind: "text", required: true },
+                      { id: "attachment", label: "附件", variable: "userinput.attachment", kind: "file", required: false },
+                      { id: "references", label: "参考文件", variable: "userinput.references", kind: "file[]", required: false }
+                    ]
+                  }
+                },
                 { id: "node-llm", type: "llm", name: "Configured model", status: "success" }
               ]
             }
@@ -1093,14 +1302,15 @@ describe("WorkflowPage", () => {
       }
 
       if (init?.method === "POST" && url.endsWith("/api/agents/agent-after-sale/runs")) {
+        runCount += 1;
         return {
           ok: true,
           json: async () => ({
-            id: "run_canvas",
+            id: `run_canvas_${runCount}`,
             agentId: "agent-after-sale",
             status: "success",
             costCny: 0.06,
-            finalOutput: "Configured model answer",
+            finalOutput: runCount === 1 ? "第一轮回复" : "第二轮回复",
             steps: [{ id: "step-llm", type: "llm", title: "LLM Decision", status: "success", latencyMs: 120 }]
           })
         };
@@ -1114,18 +1324,60 @@ describe("WorkflowPage", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /Configured model/ }));
     await waitFor(() => expect(screen.getByLabelText("模型配置")).toHaveValue("model_provider_local"));
-    fireEvent.click(screen.getByRole("button", { name: "运行调试" }));
+    fireEvent.click(screen.getByRole("button", { name: "测试运行" }));
+
+    const preview = screen.getByRole("complementary", { name: "测试预览" });
+    expect(within(preview).getByRole("heading", { name: "预览" })).toBeInTheDocument();
+    expect(within(preview).getByRole("button", { name: "关闭预览" })).toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([input, init]) => init?.method === "POST" && String(input).includes("/runs"))).toHaveLength(0);
+
+    const question = within(preview).getByRole("textbox", { name: "问题" });
+    const attachment = within(preview).getByLabelText<HTMLInputElement>("附件");
+    const references = within(preview).getByLabelText<HTMLInputElement>("参考文件");
+    const send = within(preview).getByRole("button", { name: "发送" });
+    expect(send).toBeDisabled();
+    expect(attachment.multiple).toBe(false);
+    expect(references.multiple).toBe(true);
+
+    fireEvent.change(question, { target: { value: "第一轮问题" } });
+    fireEvent.change(attachment, { target: { files: [new File(["order"], "order.txt", { type: "text/plain" })] } });
+    fireEvent.change(references, {
+      target: {
+        files: [
+          new File(["one"], "one.txt", { type: "text/plain" }),
+          new File(["two"], "two.txt", { type: "text/plain" })
+        ]
+      }
+    });
+    fireEvent.click(send);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/agents/agent-after-sale/runs", {
       body: JSON.stringify({
-        userInput: "Order ORD-2048 asks whether refund is allowed",
+        userInput: "第一轮问题",
         modelProviderId: "model_provider_local",
         knowledgeBaseIds: ["kb-after-sale"]
       }),
       headers: { "Content-Type": "application/json" },
       method: "POST"
     }));
-    expect(screen.queryByText("Configured model answer")).not.toBeInTheDocument();
+    expect(await within(preview).findByText("第一轮回复")).toBeInTheDocument();
+    expect(within(preview).getByText(/第一轮问题/)).toBeInTheDocument();
+    expect(within(preview).getByText(/order.txt/)).toBeInTheDocument();
+
+    fireEvent.change(question, { target: { value: "第二轮问题" } });
+    fireEvent.click(send);
+
+    expect(await within(preview).findByText("第二轮回复")).toBeInTheDocument();
+    expect(within(preview).getByText(/第一轮问题/)).toBeInTheDocument();
+    expect(within(preview).getByText(/第二轮问题/)).toBeInTheDocument();
+
+    fireEvent.click(within(preview).getByRole("button", { name: "关闭预览" }));
+    expect(screen.queryByRole("complementary", { name: "测试预览" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "测试运行" }));
+    expect(screen.queryByText("第一轮回复")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "用户输入" }));
+    expect(screen.queryByRole("complementary", { name: "测试预览" })).not.toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "节点配置" })).toBeInTheDocument();
   });
 
   it("hides node success status and allows deleting configurable nodes except the default user input", async () => {

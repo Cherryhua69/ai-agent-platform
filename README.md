@@ -71,7 +71,6 @@ docs/
   design/       UI 原型、设计规范和前端工程方案
   prd/          MVP 需求、用户故事和发布计划
   superpowers/  设计规格和实施计划
-infra/          基础设施预留目录
 packages/       共享包预留目录
 scripts/        Windows 本地启动、停止和重启脚本
 ```

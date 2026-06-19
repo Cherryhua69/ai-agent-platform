@@ -48,8 +48,6 @@ exit /b 0
 set "TARGET_PID=%~1"
 set "TARGET_PORT=%~2"
 if "%TARGET_PID%"=="0" exit /b 0
-tasklist /FI "PID eq %TARGET_PID%" 2>nul | findstr /R /C:" %TARGET_PID% " >nul 2>&1
-if errorlevel 1 exit /b 0
 echo [INFO] Stopping PID %TARGET_PID% on port %TARGET_PORT%.
 taskkill /PID %TARGET_PID% /T /F >nul 2>&1
 if errorlevel 1 (

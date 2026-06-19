@@ -19,13 +19,30 @@ set "API_DIR=%REPO_ROOT%\apps\api"
 set "LOG_DIR=%REPO_ROOT%\logs"
 if "%API_PORT%"=="8001" (set "API_LOG=%LOG_DIR%\api.log") else (set "API_LOG=%LOG_DIR%\api-%API_PORT%.log")
 if "%WEB_PORT%"=="5176" (set "WEB_LOG=%LOG_DIR%\web.log") else (set "WEB_LOG=%LOG_DIR%\web-%WEB_PORT%.log")
-set "PYTHON_PATH=%API_DIR%\.venv\Scripts\python.exe"
+set "CONDA_ENV_NAME=%AI_AGENT_CONDA_ENV%"
+if not defined CONDA_ENV_NAME set "CONDA_ENV_NAME=ai-agent-platform"
+set "PYTHON_PATH="
 
-if not exist "%PYTHON_PATH%" (
-  echo [ERROR] Backend Python not found: %PYTHON_PATH%
-  echo Create apps\api\.venv and install dependencies first.
+where conda >nul 2>&1
+if errorlevel 1 (
+  echo [ERROR] conda is not available on PATH.
   exit /b 1
 )
+
+for /f "usebackq delims=" %%I in (`conda run -n "%CONDA_ENV_NAME%" python -c "import sys; print(sys.executable)" 2^>nul`) do set "PYTHON_PATH=%%I"
+if not defined PYTHON_PATH (
+  echo [ERROR] Could not resolve Python from Conda environment: %CONDA_ENV_NAME%
+  echo Create it with: conda create -n %CONDA_ENV_NAME% python=3.11 -y
+  exit /b 1
+)
+
+if not exist "%PYTHON_PATH%" (
+  echo [ERROR] Conda Python not found: %PYTHON_PATH%
+  exit /b 1
+)
+
+echo [INFO] Backend Conda environment: %CONDA_ENV_NAME%
+echo [INFO] Backend Python: %PYTHON_PATH%
 
 where corepack >nul 2>&1
 if errorlevel 1 (

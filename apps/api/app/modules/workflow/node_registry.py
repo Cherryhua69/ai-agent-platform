@@ -160,7 +160,17 @@ class NodeRegistry:
                 for item in context_variables:
                     reference = str(item.get("value") or item.get("name")) if isinstance(item, dict) else str(item)
                     contexts.append(f"{reference}: {json.dumps(resolve_variable(state, reference), ensure_ascii=False, default=str)}")
-            prompt = "\n\n".join(part for part in [system_prompt, "\n".join(contexts), _render_prompt(user_prompt, state)] if part)
+            rendered_user_prompt = _render_prompt(user_prompt, state)
+            if not rendered_user_prompt.strip():
+                rendered_user_prompt = next(
+                    (
+                        value.strip()
+                        for value in state.get("inputs", {}).values()
+                        if isinstance(value, str) and value.strip()
+                    ),
+                    "",
+                )
+            prompt = "\n\n".join(part for part in [system_prompt, "\n".join(contexts), rendered_user_prompt] if part)
             result = self._model_client.invoke(provider, prompt)
             usage = getattr(result, "usage", None)
             if usage is None:

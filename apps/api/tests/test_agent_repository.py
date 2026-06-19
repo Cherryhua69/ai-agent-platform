@@ -35,6 +35,22 @@ def test_agent_repository_persists_agents_with_session_factory():
     assert WorkflowRepository(session_factory=session_factory).get(created.workflow_id) is not None
 
 
+def test_agent_repository_backfills_missing_workflow_for_persisted_agent():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine, tables=[AgentModel.__table__, WorkflowModel.__table__])
+    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    with session_factory() as session:
+        session.add(AgentModel(id="agent_without_workflow", name="历史智能体", scenario="历史数据", status="draft"))
+        session.commit()
+
+    repo = AgentRepository(session_factory=session_factory)
+    agents = repo.list()
+
+    assert [agent.id for agent in agents] == ["agent_without_workflow"]
+    assert WorkflowRepository(session_factory=session_factory).get("flow_agent_without_workflow") is not None
+
+
 def test_agent_repository_updates_and_deletes_persisted_agents():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine, tables=[AgentModel.__table__, WorkflowModel.__table__])

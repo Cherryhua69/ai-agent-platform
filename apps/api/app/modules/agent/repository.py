@@ -54,7 +54,10 @@ class AgentRepository:
         if self._session_factory:
             with self._session_factory() as session:
                 models = session.scalars(select(AgentModel).order_by(AgentModel.created_at.asc())).all()
-            return [self._to_read_model(agent) for agent in models]
+            agents = [self._to_read_model(agent) for agent in models]
+            for agent in agents:
+                self._create_default_workflow(agent.id, agent.name)
+            return agents
 
         return list(self._agents.values())
 

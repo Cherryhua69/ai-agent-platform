@@ -208,6 +208,27 @@ def test_llm_prompt_replaces_userinput_reference() -> None:
     assert "问题：退款规则" in model_client.prompt
 
 
+def test_llm_uses_current_user_input_when_user_prompt_is_empty() -> None:
+    current_registry, model_repository, model_client, _ = registry()
+    handler = current_registry.build_handler(
+        node(
+            "answer",
+            "llm",
+            {
+                "modelProviderId": "configured-provider",
+                "contextVariables": [],
+                "systemPrompt": "",
+                "userPrompt": "",
+            },
+        )
+    )
+
+    handler({"inputs": {"text_input_1": "请用中文回答我"}})
+
+    assert model_repository.requested_id == "configured-provider"
+    assert model_client.prompt == "请用中文回答我"
+
+
 def test_loop_handler_continues_three_times_then_exits() -> None:
     current_registry, _, _, _ = registry()
     handler = current_registry.build_handler(
