@@ -1,4 +1,5 @@
 from collections import defaultdict
+import re
 
 from app.modules.workflow.graph_types import WorkflowGraphValidationError
 from app.modules.workflow.schemas import WorkflowEdgeRead, WorkflowNodeRead, WorkflowRead
@@ -10,6 +11,11 @@ COMPARISON_OPERATORS = {"eq", "neq", "contains", "gt", "lt"}
 NODE_OUTPUTS = {
     "retrieval": {"result"},
     "llm": {"text", "reasoning_content", "usage"},
+}
+OUTPUT_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+OUTPUT_VALUE_TYPES = {
+    "String", "Number", "Boolean", "Object", "File",
+    "Array[String]", "Array[Number]", "Array[Boolean]", "Array[Object]", "Array[File]",
 }
 
 
@@ -52,23 +58,36 @@ def _validate_output_variables(expose: WorkflowNodeRead, nodes: dict[str, Workfl
         if not isinstance(output, dict):
             raise WorkflowGraphValidationError("输出变量 name/value 必填")
         name = str(output.get("name", "")).strip()
-        value = str(output.get("value", "")).strip()
-        if not name or not value:
+        raw_selector = output.get("valueSelector")
+        if raw_selector is not None:
+            if not isinstance(raw_selector, list) or len(raw_selector) < 2 or any(not isinstance(part, str) or not part for part in raw_selector):
+                raise WorkflowGraphValidationError("输出变量 valueSelector 必须包含来源节点和变量路径")
+            selector = raw_selector
+        else:
+            value = str(output.get("value", "")).strip()
+            selector = value.split(".") if value else []
+        if not name or len(selector) < 1:
             raise WorkflowGraphValidationError("输出变量 name/value 必填")
+        if not OUTPUT_NAME_PATTERN.fullmatch(name):
+            raise WorkflowGraphValidationError(f"输出变量名称非法: {name}")
+        value_type = output.get("valueType")
+        if value_type is not None and value_type not in OUTPUT_VALUE_TYPES:
+            raise WorkflowGraphValidationError(f"输出变量类型不受支持: {value_type}")
         if name in names:
             raise WorkflowGraphValidationError(f"输出变量名称重复: {name}")
         names.add(name)
 
-        if "." in value:
-            source_id, variable = value.split(".", 1)
+        if len(selector) >= 2:
+            source_id, variable = selector[:2]
             if source_id == "userinput":
                 valid = any(variable in _declared_variables(nodes[trigger_id]) for trigger_id in trigger_ids)
             else:
                 valid = source_id in ancestors and variable in _declared_variables(nodes[source_id])
         else:
+            value = selector[0]
             valid = any(value in _declared_variables(nodes[trigger_id]) for trigger_id in trigger_ids)
         if not valid:
-            raise WorkflowGraphValidationError(f"输出变量引用不可达或未声明: {value}")
+            raise WorkflowGraphValidationError(f"输出变量引用不可达或未声明: {'.'.join(selector)}")
 
 
 def _validate_expression(node: WorkflowNodeRead) -> None:

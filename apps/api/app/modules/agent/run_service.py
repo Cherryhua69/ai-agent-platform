@@ -1,10 +1,13 @@
 import json
+from collections.abc import Callable, Iterator
+from queue import Queue
+from threading import Thread
 from uuid import uuid4
 
 from app.modules.agent.schemas import AgentRunRequest
 from app.modules.knowledge.repository import KnowledgeRepository
 from app.modules.model_provider.repository import ModelProviderRepository
-from app.modules.model_provider.service import LangChainModelClient
+from app.modules.model_provider.service import LangChainModelClient, ModelInvocationResult
 from app.modules.trace.repository import TraceRepository
 from app.modules.trace.schemas import RunTraceCreate, RunTraceRead, TraceStepCreate
 from app.modules.workflow.graph_executor import GraphExecutor
@@ -30,12 +33,18 @@ class AgentRunService:
         self._workflows = workflows
         self._graph_executor = graph_executor
 
-    def simulate_run(self, agent_id: str, request: AgentRunRequest | None = None) -> RunTraceRead:
+    def simulate_run(
+        self,
+        agent_id: str,
+        request: AgentRunRequest | None = None,
+        stream_sink: Callable[[str], None] | None = None,
+        stream_node_ids: set[str] | None = None,
+    ) -> RunTraceRead:
         request = request or AgentRunRequest()
         run_id = f"run_{uuid4().hex[:8]}"
         workflow = self._workflows.get_by_agent_id(agent_id) if self._workflows else None
         if workflow is not None and self._graph_executor is not None and self._is_graph_configured(workflow):
-            return self._run_graph(run_id, agent_id, request, workflow)
+            return self._run_graph(run_id, agent_id, request, workflow, stream_sink, stream_node_ids)
 
         provider = self._model_providers.get(request.model_provider_id) if self._model_providers else None
         knowledge_ids = request.knowledge_base_ids or ["kb-after-sale"]
@@ -70,13 +79,26 @@ class AgentRunService:
             )
 
         retrieval_summary = self._build_retrieval_summary(request.user_input, knowledge_ids)
-        prompt = (
-            "You are an enterprise after-sale agent. "
-            f"User request: {request.user_input}\n"
-            f"Knowledge context: {retrieval_summary}\n"
-            "Return a concise final answer with the policy basis."
+        conversation_history = self._conversation_history_text(request)
+        prompt_parts = ["You are an enterprise after-sale agent."]
+        if conversation_history:
+            prompt_parts.append(conversation_history)
+        prompt_parts.extend(
+            [
+                f"User request: {request.user_input}",
+                f"Knowledge context: {retrieval_summary}",
+                "Return a concise final answer with the policy basis.",
+            ]
         )
-        result = self._model_client.invoke(provider, prompt)
+        prompt = "\n".join(prompt_parts)
+        if stream_sink is not None:
+            chunks = []
+            for chunk in self._model_client.stream(provider, prompt):
+                chunks.append(chunk)
+                stream_sink(chunk)
+            result = ModelInvocationResult(content="".join(chunks), latency_ms=0, cost_cny=0.0)
+        else:
+            result = self._model_client.invoke(provider, prompt)
 
         return self._traces.create_run(
             RunTraceCreate(
@@ -120,8 +142,83 @@ class AgentRunService:
         return any(node.type == "expose" and isinstance(node.config.get("outputVariables"), list) for node in workflow.nodes)
 
     @staticmethod
-    def _graph_inputs(workflow: WorkflowRead, user_input: str) -> dict[str, object]:
+    def _stream_output_node_ids(workflow: WorkflowRead | None) -> set[str]:
+        if workflow is None:
+            return set()
+        node_ids: set[str] = set()
+        for node in workflow.nodes:
+            if node.type != "expose":
+                continue
+            outputs = node.config.get("outputVariables", [])
+            if not isinstance(outputs, list):
+                continue
+            for output in outputs:
+                if not isinstance(output, dict):
+                    continue
+                selector = output.get("valueSelector")
+                if isinstance(selector, list) and len(selector) >= 2:
+                    if selector[1] == "text" and isinstance(selector[0], str):
+                        node_ids.add(selector[0])
+                    continue
+                reference = str(output.get("value", ""))
+                if reference.endswith(".text"):
+                    node_ids.add(reference.rsplit(".", 1)[0])
+        if node_ids:
+            return node_ids
+        llm_nodes = [node.id for node in workflow.nodes if node.type == "llm"]
+        return {llm_nodes[-1]} if llm_nodes else set()
+
+    def stream_run(self, agent_id: str, request: AgentRunRequest | None = None) -> Iterator[str]:
+        request = request or AgentRunRequest()
+        events: Queue[tuple[str, object]] = Queue()
+        workflow = self._workflows.get_by_agent_id(agent_id) if self._workflows else None
+
+        def worker() -> None:
+            try:
+                run = self.simulate_run(
+                    agent_id,
+                    request,
+                    stream_sink=lambda chunk: events.put(("delta", chunk)),
+                    stream_node_ids=self._stream_output_node_ids(workflow),
+                )
+                events.put(("done", run))
+            except Exception as exc:
+                events.put(("error", str(exc)))
+
+        Thread(target=worker, daemon=True).start()
+        emitted_text = False
+        while True:
+            event_type, payload = events.get()
+            if event_type == "delta":
+                text = str(payload)
+                if text:
+                    emitted_text = True
+                    yield json.dumps({"type": "delta", "text": text}, ensure_ascii=False) + "\n"
+                continue
+            if event_type == "error":
+                yield json.dumps({"type": "error", "message": "模型运行失败，请检查配置后重试。"}, ensure_ascii=False) + "\n"
+                return
+            run = payload
+            if not emitted_text and getattr(run, "final_output", None):
+                yield json.dumps({"type": "delta", "text": str(run.final_output)}, ensure_ascii=False) + "\n"
+            yield json.dumps({"type": "done", "runId": str(run.id)}, ensure_ascii=False) + "\n"
+            return
+
+    @staticmethod
+    def _conversation_history_text(request: AgentRunRequest) -> str:
+        if not request.conversation_history:
+            return ""
+        role_labels = {"user": "用户", "assistant": "助手"}
+        messages = "\n".join(f"{role_labels[item.role]}：{item.content}" for item in request.conversation_history)
+        return f"历史对话：\n{messages}"
+
+    @classmethod
+    def _graph_inputs(cls, workflow: WorkflowRead, request: AgentRunRequest) -> dict[str, object]:
+        user_input = request.user_input
         inputs: dict[str, object] = {"userInput": user_input, "text": user_input}
+        conversation_history = cls._conversation_history_text(request)
+        if conversation_history:
+            inputs["conversationHistory"] = conversation_history
         trigger = next((node for node in workflow.nodes if node.type == "trigger"), None)
         fields = trigger.config.get("inputFields", []) if trigger else []
         if isinstance(fields, list):
@@ -147,10 +244,17 @@ class AgentRunService:
         agent_id: str,
         request: AgentRunRequest,
         workflow: WorkflowRead,
+        stream_sink: Callable[[str], None] | None = None,
+        stream_node_ids: set[str] | None = None,
     ) -> RunTraceRead:
         node_by_id = {node.id: node for node in workflow.nodes}
         try:
-            execution = self._graph_executor.execute(workflow, self._graph_inputs(workflow, request.user_input))
+            execution = self._graph_executor.execute(
+                workflow,
+                self._graph_inputs(workflow, request),
+                stream_sink=stream_sink,
+                stream_node_ids=stream_node_ids,
+            )
         except WorkflowExecutionError as exc:
             failed_node = node_by_id.get(exc.node_id)
             failed_step = exc.trace_steps[-1]

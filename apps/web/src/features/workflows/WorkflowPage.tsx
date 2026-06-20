@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
-import { Bot, FileInput, Hand, Home, MessageSquarePlus, MousePointer2, Plus, RotateCcw, Sparkles, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type PointerEvent } from "react";
+import { Bot, FileInput, FileOutput, Hand, Home, MessageSquarePlus, MousePointer2, Plus, RotateCcw, Sparkles, X } from "lucide-react";
 import {
   Background,
   Controls,
@@ -21,14 +21,21 @@ import {
 import "@xyflow/react/dist/style.css";
 import type { Agent, KnowledgeBase, ModelProvider, RunTrace, Workflow, WorkflowEdge, WorkflowInputField, WorkflowNode } from "../../types/domain";
 import { useAgents } from "../agents/useAgents";
-import { useSimulateAgentRun } from "../agents/useSimulateAgentRun";
+import { streamAgentRun } from "../agents/streamAgentRun";
 import { useKnowledgeBases } from "../knowledge/useKnowledgeBases";
 import { KeyValueList } from "../shared/ViewBlocks";
 import { useModelProviders } from "../tools/useModelProviders";
 import { useCanvasConfig } from "./useCanvasConfig";
 import { useUpdateWorkflow } from "./useUpdateWorkflow";
 import { useWorkflows } from "./useWorkflows";
-import { getOutputVariables, getReachableUpstreamVariables, getWorkflowValidationError, type OutputVariable } from "./workflowVariables";
+import {
+  getOutputVariableError,
+  getOutputVariables,
+  getReachableUpstreamVariables,
+  getWorkflowValidationError,
+  outputSelectorToValue,
+  type OutputVariable
+} from "./workflowVariables";
 
 const nodePositions = [
   { x: 220, y: 220 },
@@ -196,14 +203,16 @@ type WorkflowFlowNodeData = {
   status: WorkflowNode["status"];
   canDelete: boolean;
   modelLabel?: string;
+  nodeNames: Record<string, string>;
   onDelete: (nodeId: string) => void;
   onSelect: (nodeId: string) => void;
+  onUpdateDescription: (nodeId: string, description: string) => void;
 };
 
 function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
-  const { node, canDelete, modelLabel, onDelete, onSelect } = data;
+  const { node, canDelete, modelLabel, nodeNames, onDelete, onSelect, onUpdateDescription } = data;
   const inputFields = node.type === "trigger" ? getInputFields(node) : [];
-  const outputVariables = node.type === "expose" ? getOutputVariables(node) : [];
+  const [isEditingComment, setIsEditingComment] = useState(false);
 
   function handleDelete(event: MouseEvent<HTMLElement>) {
     event.stopPropagation();
@@ -220,11 +229,9 @@ function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
     }
   }
 
-  function handleCommentKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      handleSelect();
-    }
+  function handleCommentDoubleClick(event: MouseEvent<HTMLDivElement>) {
+    event.stopPropagation();
+    setIsEditingComment(true);
   }
 
   if (node.type === "comment") {
@@ -232,11 +239,8 @@ function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
       <div
         className="workflow-comment-node"
         data-workflow-node-id={node.id}
-        onClick={handleSelect}
-        onKeyDown={handleCommentKeyDown}
-        onPointerDown={handlePointerSelect}
-        role="button"
-        tabIndex={0}
+        data-workflow-node-type="comment"
+        onDoubleClick={handleCommentDoubleClick}
       >
         {canDelete ? (
           <button aria-label="删除节点" className="workflow-node-delete" onClick={handleDelete} title="删除" type="button">
@@ -244,7 +248,21 @@ function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
           </button>
         ) : null}
         <strong>{node.name}</strong>
-        <p>{node.description ?? "记录这个流程分支的说明。"}</p>
+        {isEditingComment ? (
+          <textarea
+            aria-label="编辑注释"
+            autoFocus
+            onBlur={() => setIsEditingComment(false)}
+            onChange={(event) => onUpdateDescription(node.id, event.target.value)}
+            onClick={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+            value={node.description ?? ""}
+          />
+        ) : (
+          <p>{node.description ?? "记录这个流程分支的说明。"}</p>
+        )}
       </div>
     );
   }
@@ -264,9 +282,9 @@ function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
         type="button"
       >
         <span className="workflow-node-title">
-          {node.type === "trigger" || node.type === "llm" ? (
+          {node.type === "trigger" || node.type === "llm" || node.type === "expose" ? (
             <span className="workflow-node-icon" aria-hidden="true">
-              {node.type === "trigger" ? <Home size={13} /> : <Bot size={13} />}
+              {node.type === "trigger" ? <Home size={13} /> : node.type === "llm" ? <Bot size={13} /> : <FileOutput size={13} />}
             </span>
           ) : null}
           <strong>{node.name}</strong>
@@ -289,7 +307,14 @@ function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
           </span>
         ) : node.type === "expose" ? (
           <span className="workflow-output-summary">
-            {outputVariables.length > 0 ? outputVariables.map((item) => `${item.name} → ${item.value}`).join("，") : "请配置输出变量"}
+            {getOutputVariables(node).slice(0, 3).map((item) => {
+              const [sourceId, ...path] = item.valueSelector;
+              return (
+                <span key={item.id}>
+                  {item.name || "未命名"} ← {nodeNames[sourceId] || sourceId || "未选择"} / {path.join(".") || "未选择"} · {item.valueType}
+                </span>
+              );
+            })}
           </span>
         ) : (
           <span>{node.description ?? getNodeTypeLabel(node.type)}</span>
@@ -352,6 +377,13 @@ function createFlowEdges(edges: WorkflowEdge[] = []): Edge[] {
   }));
 }
 
+export function deleteSelectedEdges(edges: Edge[], key: string): Edge[] {
+  if (key !== "Delete" && key !== "Backspace") {
+    return edges;
+  }
+  return edges.filter((edge) => !edge.selected);
+}
+
 function createFlowNodes(
   nodes: WorkflowNode[],
   selectedNodeId: string,
@@ -360,8 +392,10 @@ function createFlowNodes(
   onSelectNode: (nodeId: string) => void = () => undefined,
   currentNodes: Node[] = [],
   modelProviders: ModelProvider[] = [],
-  fallbackModelProviderId = ""
+  fallbackModelProviderId = "",
+  onUpdateDescription: (nodeId: string, description: string) => void = () => undefined
 ): Node[] {
+  const nodeNames = Object.fromEntries(nodes.map((node) => [node.id, node.name]));
   return nodes.map((node, index) => {
     const status = getRunStatus(node, latestRun);
     const isComment = node.type === "comment";
@@ -380,8 +414,10 @@ function createFlowNodes(
         status,
         canDelete: !isDefaultUserInputNode(node),
         modelLabel: node.type === "llm" ? getModelLabel(modelProviders, getLlmConfig(node, fallbackModelProviderId).modelProviderId) : undefined,
+        nodeNames,
         onDelete: onDeleteNode,
-        onSelect: onSelectNode
+        onSelect: onSelectNode,
+        onUpdateDescription
       },
       selected: selectedNodeId === node.id,
       className: isComment ? "workflow-flow-node workflow-flow-comment" : `workflow-flow-node workflow-flow-node-${status}`
@@ -394,7 +430,6 @@ export function WorkflowPage() {
   const workflowsQuery = useWorkflows();
   const modelProvidersQuery = useModelProviders();
   const knowledgeBasesQuery = useKnowledgeBases();
-  const simulateAgentRun = useSimulateAgentRun();
   const updateWorkflow = useUpdateWorkflow();
   const modelProviders = modelProvidersQuery.data ?? emptyModelProviders;
   const knowledgeBases = knowledgeBasesQuery.data ?? emptyKnowledgeBases;
@@ -407,8 +442,7 @@ export function WorkflowPage() {
     setSelectedNodeId,
     setModelProviderId,
     toggleKnowledgeBaseId,
-    latestRun,
-    setLatestRun
+    latestRun
   } = useCanvasConfig();
   const [canvasMode, setCanvasMode] = useState<CanvasMode>("select");
   const [isNodeMenuOpen, setIsNodeMenuOpen] = useState(false);
@@ -427,6 +461,8 @@ export function WorkflowPage() {
   const [previewMessages, setPreviewMessages] = useState<PreviewMessage[]>([]);
   const [previewTextValues, setPreviewTextValues] = useState<Record<string, string>>({});
   const [previewFileValues, setPreviewFileValues] = useState<Record<string, File[]>>({});
+  const [isPreviewStreaming, setIsPreviewStreaming] = useState(false);
+  const [previewStreamError, setPreviewStreamError] = useState(false);
   const [isInputTypeMenuOpen, setIsInputTypeMenuOpen] = useState(false);
   const agents = agentsQuery.data ?? emptyAgents;
   const workflows = workflowsQuery.data ?? emptyWorkflows;
@@ -466,14 +502,41 @@ export function WorkflowPage() {
     (nodeId: string) => {
       setSelectedNodeId(nodeId);
       setIsPreviewOpen(false);
-      setIsInspectorOpen(true);
+      setIsInspectorOpen(nodes.find((node) => node.id === nodeId)?.type !== "comment");
     },
-    [setSelectedNodeId]
+    [nodes, setSelectedNodeId]
+  );
+  const handleUpdateNodeDescription = useCallback(
+    (nodeId: string, description: string) => {
+      setNodeDescriptionOverrides((descriptions) => ({ ...descriptions, [nodeId]: description }));
+      setSaveRevision((revision) => revision + 1);
+    },
+    []
   );
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(
-    createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, undefined, handleSelectNode, [], modelProviders, modelProviderId)
+    createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, undefined, handleSelectNode, [], modelProviders, modelProviderId, handleUpdateNodeDescription)
   );
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<Edge>(createFlowEdges(workflow?.edges));
+
+  useEffect(() => {
+    function handleDeleteSelectedEdge(event: globalThis.KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target?.matches("input, textarea, select, [contenteditable='true']")) {
+        return;
+      }
+      setFlowEdges((currentEdges) => {
+        const nextEdges = deleteSelectedEdges(currentEdges, event.key);
+        if (nextEdges.length === currentEdges.length) {
+          return currentEdges;
+        }
+        setSaveRevision((revision) => revision + 1);
+        return nextEdges;
+      });
+    }
+
+    window.addEventListener("keydown", handleDeleteSelectedEdge);
+    return () => window.removeEventListener("keydown", handleDeleteSelectedEdge);
+  }, [setFlowEdges]);
 
   function markWorkflowDirty() {
     setSaveRevision((revision) => revision + 1);
@@ -514,13 +577,13 @@ export function WorkflowPage() {
 
   useEffect(() => {
     setFlowNodes((currentNodes) =>
-      createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, currentNodes, modelProviders, modelProviderId)
+      createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, currentNodes, modelProviders, modelProviderId, handleUpdateNodeDescription)
     );
-  }, [handleDeleteNode, handleSelectNode, latestRun, modelProviderId, modelProviders, nodes, selectedNode?.id, setFlowNodes]);
+  }, [handleDeleteNode, handleSelectNode, handleUpdateNodeDescription, latestRun, modelProviderId, modelProviders, nodes, selectedNode?.id, setFlowNodes]);
 
   useEffect(() => {
     setFlowNodes(
-      createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, [], modelProviders, modelProviderId)
+      createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, [], modelProviders, modelProviderId, handleUpdateNodeDescription)
     );
     setFlowEdges(createFlowEdges(workflow?.edges));
     hasLoadedWorkflowRef.current = false;
@@ -546,11 +609,12 @@ export function WorkflowPage() {
     setPreviewMessages([]);
     setPreviewTextValues({});
     setPreviewFileValues({});
+    setPreviewStreamError(false);
   }
 
-  function handleRunDebug(event: FormEvent<HTMLFormElement>) {
+  async function handleRunDebug(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!workflow || !isPreviewReady || simulateAgentRun.isPending) {
+    if (!workflow || !isPreviewReady || isPreviewStreaming) {
       return;
     }
 
@@ -569,33 +633,46 @@ export function WorkflowPage() {
     const messageContent = [visibleText, fileNames.length > 0 ? `附件：${fileNames.join("、")}` : ""].filter(Boolean).join("\n");
     const messageId = `${Date.now()}-${previewMessages.length}`;
 
-    setPreviewMessages((messages) => [...messages, { id: `${messageId}-user`, role: "user", content: messageContent }]);
+    const assistantMessageId = `${messageId}-assistant`;
+    setPreviewMessages((messages) => [
+      ...messages,
+      { id: `${messageId}-user`, role: "user", content: messageContent },
+      { id: assistantMessageId, role: "assistant", content: "" }
+    ]);
     setPreviewTextValues({});
     setPreviewFileValues({});
+    setPreviewStreamError(false);
+    setIsPreviewStreaming(true);
     event.currentTarget.reset();
-    simulateAgentRun.mutate(
-      {
+    const conversationHistory = previewMessages
+      .filter((message): message is PreviewMessage & { role: "user" | "assistant" } => message.role !== "error" && Boolean(message.content))
+      .slice(-20)
+      .map(({ role, content }) => ({ role, content }));
+    try {
+      await streamAgentRun(
+        {
         agentId: workflow?.agentId ?? "agent-after-sale",
         userInput: userInputValue || messageContent,
         modelProviderId: modelProviderId || undefined,
-        knowledgeBaseIds
-      },
-      {
-        onSuccess: (run) => {
-          setLatestRun(run);
-          setPreviewMessages((messages) => [
-            ...messages,
-            { id: `${messageId}-assistant`, role: "assistant", content: run.finalOutput ?? "运行完成" }
-          ]);
+        knowledgeBaseIds,
+        conversationHistory
         },
-        onError: () => {
-          setPreviewMessages((messages) => [
-            ...messages,
-            { id: `${messageId}-error`, role: "error", content: "运行失败，请检查模型与工作流配置后重试。" }
-          ]);
+        (chunk) => {
+          setPreviewMessages((messages) => messages.map((message) => (
+            message.id === assistantMessageId ? { ...message, content: message.content + chunk } : message
+          )));
         }
-      }
-    );
+      );
+    } catch {
+      setPreviewStreamError(true);
+      setPreviewMessages((messages) => messages.map((message) => (
+        message.id === assistantMessageId
+          ? { ...message, role: "error", content: "运行失败，请检查模型与工作流配置后重试。" }
+          : message
+      )));
+    } finally {
+      setIsPreviewStreaming(false);
+    }
   }
 
   function getNodeConfig(node: WorkflowNode) {
@@ -616,6 +693,9 @@ export function WorkflowPage() {
         ...(node.config ?? {}),
         maxIterations: normalizeMaxIterations(node.config?.maxIterations)
       };
+    }
+    if (node.type === "expose") {
+      return { ...(node.config ?? {}), outputVariables: getOutputVariables(node) };
     }
     return node.config ?? {};
   }
@@ -790,10 +870,20 @@ export function WorkflowPage() {
     setLocalNodes((currentNodes) => [...currentNodes, nextNode]);
     setFlowNodes((currentNodes) => [
       ...currentNodes,
-      ...createFlowNodes([nextNode], id, latestRun, undefined, handleSelectNode).map((node) => ({ ...node, position }))
+      ...createFlowNodes(
+        [nextNode],
+        id,
+        latestRun,
+        undefined,
+        handleSelectNode,
+        [],
+        modelProviders,
+        modelProviderId,
+        handleUpdateNodeDescription
+      ).map((node) => ({ ...node, position }))
     ]);
     setSelectedNodeId(id);
-    setIsInspectorOpen(true);
+    setIsInspectorOpen(!isComment);
     setPendingPlacement(null);
     setPlacementPreviewPosition(null);
     setLayoutMessage("");
@@ -819,6 +909,9 @@ export function WorkflowPage() {
     }
 
     const nodeElement = target.closest<HTMLElement>("[data-workflow-node-id]");
+    if (nodeElement?.dataset.workflowNodeType === "comment") {
+      return;
+    }
     const nodeId = nodeElement?.dataset.workflowNodeId;
     if (nodeId) {
       handleSelectNode(nodeId);
@@ -944,15 +1037,37 @@ export function WorkflowPage() {
   }
 
   function handleAddOutputVariable() {
-    updateOutputVariables([...getOutputVariables(selectedNode), { id: `output-${Date.now()}`, name: "", value: "" }]);
+    updateOutputVariables([...getOutputVariables(selectedNode), { id: `output-${Date.now()}`, name: "", valueSelector: [], valueType: "String" }]);
   }
 
-  function handleUpdateOutputVariable(index: number, field: keyof OutputVariable, value: string) {
-    updateOutputVariables(getOutputVariables(selectedNode).map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)));
+  function handleUpdateOutputVariableName(index: number, name: string) {
+    updateOutputVariables(getOutputVariables(selectedNode).map((item, itemIndex) => (itemIndex === index ? { ...item, name } : item)));
+  }
+
+  function handleUpdateOutputVariableSelector(index: number, value: string, upstreamVariables: ReturnType<typeof getReachableUpstreamVariables>) {
+    const selected = upstreamVariables.find((variable) => variable.value === value);
+    if (!selected) return;
+    const outputs = getOutputVariables(selectedNode);
+    const usedNames = new Set(outputs.filter((_, itemIndex) => itemIndex !== index).map((item) => item.name));
+    let name = outputs[index]?.name.trim() || selected.name;
+    let suffix = 1;
+    while (usedNames.has(name)) name = `${selected.name}_${suffix++}`;
+    updateOutputVariables(outputs.map((item, itemIndex) => itemIndex === index
+      ? { ...item, name, valueSelector: selected.valueSelector, valueType: selected.valueType }
+      : item));
   }
 
   function handleDeleteOutputVariable(index: number) {
     updateOutputVariables(getOutputVariables(selectedNode).filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function handleMoveOutputVariable(index: number, direction: -1 | 1) {
+    const outputs = getOutputVariables(selectedNode);
+    const target = index + direction;
+    if (target < 0 || target >= outputs.length) return;
+    const next = [...outputs];
+    [next[index], next[target]] = [next[target], next[index]];
+    updateOutputVariables(next);
   }
 
   function renderNodeInspector() {
@@ -1029,6 +1144,11 @@ export function WorkflowPage() {
     if (selectedNode.type === "expose") {
       const outputVariables = getOutputVariables(selectedNode);
       const upstreamVariables = getUpstreamContextOptions(selectedNode);
+      const upstreamGroups = [...new Map(upstreamVariables.map((variable) => [
+        variable.nodeId,
+        { label: variable.nodeName, variables: upstreamVariables.filter((item) => item.nodeId === variable.nodeId) }
+      ])).values()];
+      const outputError = getOutputVariableError(outputVariables);
       return (
         <section className="workflow-output-config" aria-label="输出变量">
           <div className="workflow-output-header">
@@ -1042,30 +1162,37 @@ export function WorkflowPage() {
             <div className="workflow-output-row" key={item.id}>
               <input
                 aria-label="输出变量名"
-                onChange={(event) => handleUpdateOutputVariable(index, "name", event.target.value)}
+                onChange={(event) => handleUpdateOutputVariableName(index, event.target.value)}
                 placeholder="变量名"
                 required
                 value={item.name}
               />
               <select
                 aria-label="设置变量值"
-                onChange={(event) => handleUpdateOutputVariable(index, "value", event.target.value)}
+                onChange={(event) => handleUpdateOutputVariableSelector(index, event.target.value, upstreamVariables)}
                 required
-                value={item.value}
+                value={outputSelectorToValue(item.valueSelector)}
               >
                 <option value="">请选择上游变量</option>
-                {upstreamVariables.map((variable) => (
-                  <option key={variable.value} value={variable.value}>
-                    {variable.nodeName} / {variable.name} {variable.valueType}
-                  </option>
+                {upstreamGroups.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.variables.map((variable) => (
+                      <option key={variable.value} value={variable.value}>
+                        {variable.nodeName} / {variable.name} {variable.valueType}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
-              <button aria-label={`删除输出变量 ${index + 1}`} onClick={() => handleDeleteOutputVariable(index)} type="button">
-                ×
-              </button>
+              <span className="workflow-output-row-actions">
+                <button aria-label={`上移输出变量 ${index + 1}`} disabled={index === 0} onClick={() => handleMoveOutputVariable(index, -1)} type="button">↑</button>
+                <button aria-label={`下移输出变量 ${index + 1}`} disabled={index === outputVariables.length - 1} onClick={() => handleMoveOutputVariable(index, 1)} type="button">↓</button>
+                <button aria-label={`删除输出变量 ${index + 1}`} onClick={() => handleDeleteOutputVariable(index)} type="button">×</button>
+              </span>
             </div>
           ))}
           {outputVariables.length === 0 ? <p className="empty-note">点击加号添加输出变量。</p> : null}
+          {outputVariables.length > 0 && outputError ? <p className="inline-error">{outputError}</p> : null}
         </section>
       );
     }
@@ -1383,6 +1510,7 @@ export function WorkflowPage() {
             connectionLineStyle={{ stroke: "#2563eb", strokeWidth: 2.4 }}
             connectionLineType={ConnectionLineType.Bezier}
             connectionRadius={32}
+            deleteKeyCode={null}
             fitView
             nodes={flowNodes}
             edges={flowEdges}
@@ -1447,11 +1575,10 @@ export function WorkflowPage() {
               ) : (
                 previewMessages.map((message) => (
                   <div className={`workflow-preview-message ${message.role}`} key={message.id}>
-                    {message.content.split("\n").map((line, index) => <p key={`${message.id}-${index}`}>{line}</p>)}
+                    {(message.content || "正在生成...").split("\n").map((line, index) => <p key={`${message.id}-${index}`}>{line}</p>)}
                   </div>
                 ))
               )}
-              {simulateAgentRun.isPending ? <div className="workflow-preview-message assistant pending">正在生成...</div> : null}
             </div>
 
             <form className="workflow-preview-composer" onSubmit={handleRunDebug}>
@@ -1481,8 +1608,8 @@ export function WorkflowPage() {
                   </label>
                 ))}
               </div>
-              <button aria-label="发送" className="workflow-preview-send" disabled={!isPreviewReady || simulateAgentRun.isPending || !workflow} type="submit">
-                {simulateAgentRun.isPending ? "生成中..." : "发送"}
+              <button aria-label="发送" className="workflow-preview-send" disabled={!isPreviewReady || isPreviewStreaming || !workflow} type="submit">
+                {isPreviewStreaming ? "生成中..." : "发送"}
               </button>
             </form>
           </aside>
@@ -1526,7 +1653,7 @@ export function WorkflowPage() {
                   ) : null}
                 </>
               )}
-              {simulateAgentRun.isError ? <p className="inline-error">运行调试失败，请检查模型 API 配置。</p> : null}
+              {previewStreamError ? <p className="inline-error">运行调试失败，请检查模型 API 配置。</p> : null}
               {updateWorkflow.isError ? <p className="inline-error">保存失败，请稍后重试。</p> : null}
             </div>
           </aside>

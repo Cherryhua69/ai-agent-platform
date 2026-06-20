@@ -17,14 +17,31 @@ if TYPE_CHECKING:
 NodeHandler = Callable[[WorkflowState], dict[str, Any]]
 
 
-def resolve_variable(state: WorkflowState, reference: str) -> Any:
+def _read_path(value: Any, path: list[str]) -> Any:
+    current = value
+    for part in path:
+        if isinstance(current, dict):
+            current = current.get(part)
+        elif isinstance(current, list) and part.isdigit():
+            index = int(part)
+            current = current[index] if 0 <= index < len(current) else None
+        else:
+            return None
+    return current
+
+
+def resolve_variable(state: WorkflowState, reference: str | list[str]) -> Any:
     """解析输入变量或指定节点的输出变量。"""
-    if "." not in reference:
-        return state.get("inputs", {}).get(reference)
-    node_id, variable = reference.split(".", 1)
-    if node_id in {"trigger", "userinput", "input"}:
-        return state.get("inputs", {}).get(variable)
-    return state.get("node_outputs", {}).get(node_id, {}).get(variable)
+    selector = reference.split(".") if isinstance(reference, str) else reference
+    selector = [part for part in selector if isinstance(part, str) and part]
+    if not selector:
+        return None
+    if len(selector) == 1:
+        return state.get("inputs", {}).get(selector[0])
+    source_id, *path = selector
+    if source_id in {"trigger", "userinput", "input"}:
+        return _read_path(state.get("inputs", {}), path)
+    return _read_path(state.get("node_outputs", {}).get(source_id, {}), path)
 
 
 def _serializable(value: Any) -> Any:
@@ -131,6 +148,8 @@ class NodeRegistry:
                 selected[name] = inputs.get(reference, inputs.get(name))
             if not references:
                 selected = dict(inputs)
+            elif inputs.get("conversationHistory"):
+                selected["conversationHistory"] = inputs["conversationHistory"]
             return {"inputs": selected, "trace_steps": self._trace(node)}
 
         return handler
@@ -170,14 +189,30 @@ class NodeRegistry:
                     ),
                     "",
                 )
-            prompt = "\n\n".join(part for part in [system_prompt, "\n".join(contexts), rendered_user_prompt] if part)
-            result = self._model_client.invoke(provider, prompt)
-            usage = getattr(result, "usage", None)
-            if usage is None:
-                usage = {"latency_ms": getattr(result, "latency_ms", 0), "cost_cny": getattr(result, "cost_cny", 0.0)}
+            conversation_history = str(state.get("inputs", {}).get("conversationHistory", ""))
+            prompt = "\n\n".join(
+                part for part in [system_prompt, conversation_history, "\n".join(contexts), rendered_user_prompt] if part
+            )
+            stream_sink = state.get("stream_sink")
+            should_stream = callable(stream_sink) and node.id in state.get("stream_node_ids", set())
+            if should_stream:
+                chunks = []
+                for chunk in self._model_client.stream(provider, prompt):
+                    chunks.append(chunk)
+                    stream_sink(chunk)
+                content = "".join(chunks)
+                reasoning_content = ""
+                usage = {"latency_ms": 0, "cost_cny": 0.0}
+            else:
+                result = self._model_client.invoke(provider, prompt)
+                content = str(getattr(result, "content", ""))
+                reasoning_content = str(getattr(result, "reasoning_content", ""))
+                usage = getattr(result, "usage", None)
+                if usage is None:
+                    usage = {"latency_ms": getattr(result, "latency_ms", 0), "cost_cny": getattr(result, "cost_cny", 0.0)}
             output = {
-                "text": str(getattr(result, "content", "")),
-                "reasoning_content": str(getattr(result, "reasoning_content", "")),
+                "text": content,
+                "reasoning_content": reasoning_content,
                 "usage": usage,
             }
             return {"node_outputs": {node.id: output}, "trace_steps": self._trace(node)}
@@ -189,9 +224,14 @@ class NodeRegistry:
 
         def handler(state: WorkflowState) -> dict[str, Any]:
             final_output = {
-                str(item["name"]): resolve_variable(state, str(item["value"]))
+                str(item["name"]): resolve_variable(
+                    state,
+                    item.get("valueSelector") if isinstance(item.get("valueSelector"), list) else str(item.get("value", "")),
+                )
                 for item in outputs
-                if isinstance(item, dict) and item.get("name") and item.get("value")
+                if isinstance(item, dict)
+                and item.get("name")
+                and (item.get("value") or item.get("valueSelector"))
             }
             return {"final_output": final_output, "trace_steps": self._trace(node)}
 

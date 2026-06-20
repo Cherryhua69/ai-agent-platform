@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import StreamingResponse
 
 from app.core.database import SessionLocal
 from app.modules.agent.repository import AgentRepository
@@ -59,3 +60,12 @@ def delete_agent(agent_id: str) -> None:
 @router.post("/{agent_id}/runs", response_model=RunTraceRead, status_code=status.HTTP_201_CREATED)
 def simulate_agent_run(agent_id: str, payload: AgentRunRequest | None = None) -> RunTraceRead:
     return run_service.simulate_run(agent_id, payload)
+
+
+@router.post("/{agent_id}/runs/stream")
+def stream_agent_run(agent_id: str, payload: AgentRunRequest | None = None) -> StreamingResponse:
+    return StreamingResponse(
+        run_service.stream_run(agent_id, payload),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

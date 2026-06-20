@@ -1,6 +1,37 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.modules.agent.run_service import AgentRunService
+from app.modules.workflow.schemas import WorkflowRead
+
+
+def test_streaming_uses_llm_selected_by_structured_output_variable() -> None:
+    workflow = WorkflowRead.model_validate(
+        {
+            "id": "workflow",
+            "agentId": "agent",
+            "name": "chatbot",
+            "status": "ready",
+            "toolHealthStatus": "online",
+            "nodes": [
+                {"id": "answer", "type": "llm", "name": "最终回答", "status": "success"},
+                {"id": "followup", "type": "llm", "name": "后续处理", "status": "success"},
+                {
+                    "id": "output",
+                    "type": "expose",
+                    "name": "输出",
+                    "status": "success",
+                    "config": {
+                        "outputVariables": [
+                            {"name": "answer", "valueSelector": ["answer", "text"], "valueType": "String"}
+                        ]
+                    },
+                },
+            ],
+        }
+    )
+
+    assert AgentRunService._stream_output_node_ids(workflow) == {"answer"}
 
 
 def test_agent_run_creates_queryable_trace_with_final_output():

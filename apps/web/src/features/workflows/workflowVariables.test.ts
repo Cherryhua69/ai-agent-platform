@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { WorkflowEdge, WorkflowNode } from "../../types/domain";
-import { getDeclaredNodeOutputs, getOutputVariables, getReachableUpstreamVariables, getWorkflowValidationError } from "./workflowVariables";
+import {
+  getDeclaredNodeOutputs,
+  getOutputVariableError,
+  getOutputVariables,
+  getReachableUpstreamVariables,
+  getWorkflowValidationError
+} from "./workflowVariables";
 
 describe("workflowVariables", () => {
   const nodes: WorkflowNode[] = [
@@ -29,15 +35,15 @@ describe("workflowVariables", () => {
 
   it("按节点类型声明可用输出", () => {
     expect(getDeclaredNodeOutputs(nodes[0])).toEqual([
-      { nodeId: "trigger", nodeName: "用户输入", name: "问题", value: "userinput.question", valueType: "String" }
+      { nodeId: "trigger", nodeName: "用户输入", name: "问题", value: "userinput.question", valueSelector: ["userinput", "question"], valueType: "String" }
     ]);
     expect(getDeclaredNodeOutputs(nodes[1])).toEqual([
-      { nodeId: "retrieval", nodeName: "知识检索", name: "result", value: "retrieval.result", valueType: "Array[Object]" }
+      { nodeId: "retrieval", nodeName: "知识检索", name: "result", value: "retrieval.result", valueSelector: ["retrieval", "result"], valueType: "Array[Object]" }
     ]);
     expect(getDeclaredNodeOutputs(nodes[2])).toEqual([
-      { nodeId: "llm", nodeName: "LLM", name: "text", value: "llm.text", valueType: "String" },
-      { nodeId: "llm", nodeName: "LLM", name: "reasoning_content", value: "llm.reasoning_content", valueType: "String" },
-      { nodeId: "llm", nodeName: "LLM", name: "usage", value: "llm.usage", valueType: "Object" }
+      { nodeId: "llm", nodeName: "LLM", name: "text", value: "llm.text", valueSelector: ["llm", "text"], valueType: "String" },
+      { nodeId: "llm", nodeName: "LLM", name: "reasoning_content", value: "llm.reasoning_content", valueSelector: ["llm", "reasoning_content"], valueType: "String" },
+      { nodeId: "llm", nodeName: "LLM", name: "usage", value: "llm.usage", valueSelector: ["llm", "usage"], valueType: "Object" }
     ]);
     expect(getDeclaredNodeOutputs(nodes[4])).toEqual([]);
     expect(getDeclaredNodeOutputs(nodes[5])).toEqual([]);
@@ -62,11 +68,29 @@ describe("workflowVariables", () => {
   });
 
   it("解析输出节点的配置草稿", () => {
-    expect(getOutputVariables(nodes[3])).toEqual([{ id: "output-0", name: "answer", value: "llm.text" }]);
-    expect(getOutputVariables({ ...nodes[3], config: { outputVariables: [{ name: "", value: "llm.text" }, null] } })).toEqual([
-      { id: "output-0", name: "", value: "llm.text" },
-      { id: "output-1", name: "", value: "" }
+    expect(getOutputVariables(nodes[3])).toEqual([
+      { id: "output-0", name: "answer", valueSelector: ["llm", "text"], valueType: "String" }
     ]);
+    expect(getOutputVariables({ ...nodes[3], config: { outputVariables: [
+      { id: "usage", name: "usage_tokens", valueSelector: ["llm", "usage", "total_tokens"], valueType: "Number" },
+      { name: "", value: "llm.text" },
+      null
+    ] } })).toEqual([
+      { id: "usage", name: "usage_tokens", valueSelector: ["llm", "usage", "total_tokens"], valueType: "Number" },
+      { id: "output-1", name: "", valueSelector: ["llm", "text"], valueType: "String" },
+      { id: "output-2", name: "", valueSelector: [], valueType: "String" }
+    ]);
+  });
+
+  it("即时校验输出变量名称、重复项和结构化选择器", () => {
+    expect(getOutputVariableError([{ id: "1", name: "bad name", valueSelector: ["llm", "text"], valueType: "String" }])).toContain("字母");
+    expect(getOutputVariableError([
+      { id: "1", name: "answer", valueSelector: ["llm", "text"], valueType: "String" },
+      { id: "2", name: "answer", valueSelector: ["llm", "usage"], valueType: "Object" }
+    ])).toContain("重复");
+    expect(getOutputVariableError([{ id: "1", name: "answer", valueSelector: [], valueType: "String" }])).toContain("变量值");
+    expect(getOutputVariableError([{ id: "1", name: "answer", valueSelector: ["llm", "text"], valueType: "Mystery" }])).toContain("类型");
+    expect(getOutputVariableError([{ id: "1", name: "answer_1", valueSelector: ["llm", "text"], valueType: "String" }])).toBe("");
   });
 
   it("在分支汇合、重复边和断边场景中稳定派生上游变量", () => {
@@ -103,6 +127,11 @@ describe("workflowVariables", () => {
       [...validEdges, { id: "llm-another", source: "llm", target: "another-expose" }]
     )).toContain("恰好一个输出节点");
     expect(getWorkflowValidationError(validNodes, [...validEdges, { id: "bad", source: "expose", target: "llm" }])).toContain("不能有出边");
+    expect(getWorkflowValidationError([
+      nodes[0],
+      nodes[2],
+      { ...nodes[3], config: { outputVariables: [{ name: "bad name", valueSelector: ["llm", "text"], valueType: "String" }] } }
+    ], validEdges)).toContain("字母");
 
     const condition = { ...nodes[4], config: { defaultBranch: "default" } };
     const conditionOutput = { ...nodes[3], config: { outputVariables: [{ name: "answer", value: "userinput.question" }] } };

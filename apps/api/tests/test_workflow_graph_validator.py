@@ -198,6 +198,54 @@ def test_validator_rejects_output_variable_not_reachable_from_expose() -> None:
         validate_workflow_graph(graph)
 
 
+def test_validator_accepts_structured_nested_output_selector() -> None:
+    graph = workflow(
+        [
+            node("trigger", "trigger"),
+            node("answer", "llm"),
+            node(
+                "expose",
+                "expose",
+                {
+                    "outputVariables": [
+                        {
+                            "name": "tokens",
+                            "valueSelector": ["answer", "usage", "total_tokens"],
+                            "valueType": "Number",
+                        }
+                    ]
+                },
+            ),
+        ],
+        [edge("trigger", "answer"), edge("answer", "expose")],
+    )
+
+    validate_workflow_graph(graph)
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        {"name": "bad name", "valueSelector": ["answer", "text"]},
+        {"name": "answer", "valueSelector": ["answer"]},
+        {"name": "answer", "valueSelector": "answer.text"},
+        {"name": "answer", "valueSelector": ["answer", "text"], "valueType": "Mystery"},
+    ],
+)
+def test_validator_rejects_invalid_structured_output(output: dict[str, object]) -> None:
+    graph = workflow(
+        [
+            node("trigger", "trigger"),
+            node("answer", "llm"),
+            node("expose", "expose", {"outputVariables": [output]}),
+        ],
+        [edge("trigger", "answer"), edge("answer", "expose")],
+    )
+
+    with pytest.raises(ValueError, match="输出变量"):
+        validate_workflow_graph(graph)
+
+
 @pytest.mark.parametrize(
     ("bad_node", "message"),
     [

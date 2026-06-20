@@ -5,14 +5,33 @@ export type WorkflowVariableOption = {
   nodeName: string;
   name: string;
   value: string;
-  valueType: "String" | "Object" | "Array[Object]" | "File" | "Array[File]";
+  valueSelector: string[];
+  valueType: string;
 };
 
 export type OutputVariable = {
   id: string;
   name: string;
-  value: string;
+  valueSelector: string[];
+  valueType: string;
 };
+
+const OUTPUT_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const OUTPUT_VALUE_TYPES = new Set([
+  "String", "Number", "Boolean", "Object", "File",
+  "Array[String]", "Array[Number]", "Array[Boolean]", "Array[Object]", "Array[File]"
+]);
+
+export function outputSelectorToValue(valueSelector: string[]): string {
+  return valueSelector.join(".");
+}
+
+function legacyValueType(valueSelector: string[]): string {
+  const field = valueSelector[1] ?? "";
+  if (field === "usage") return "Object";
+  if (field === "result") return "Array[Object]";
+  return "String";
+}
 
 function readInputFields(node: WorkflowNode): WorkflowInputField[] {
   return Array.isArray(node.config?.inputFields)
@@ -30,20 +49,21 @@ export function getDeclaredNodeOutputs(node: WorkflowNode): WorkflowVariableOpti
       nodeName: node.name,
       name: field.label,
       value: field.variable,
+      valueSelector: ["userinput", field.variable.split(".").at(-1) ?? field.variable],
       valueType: field.kind === "file[]" ? "Array[File]" : field.kind === "file" ? "File" : "String"
     }));
   }
 
   if (node.type === "llm") {
     return [
-      { nodeId: node.id, nodeName: node.name, name: "text", value: `${node.id}.text`, valueType: "String" },
-      { nodeId: node.id, nodeName: node.name, name: "reasoning_content", value: `${node.id}.reasoning_content`, valueType: "String" },
-      { nodeId: node.id, nodeName: node.name, name: "usage", value: `${node.id}.usage`, valueType: "Object" }
+      { nodeId: node.id, nodeName: node.name, name: "text", value: `${node.id}.text`, valueSelector: [node.id, "text"], valueType: "String" },
+      { nodeId: node.id, nodeName: node.name, name: "reasoning_content", value: `${node.id}.reasoning_content`, valueSelector: [node.id, "reasoning_content"], valueType: "String" },
+      { nodeId: node.id, nodeName: node.name, name: "usage", value: `${node.id}.usage`, valueSelector: [node.id, "usage"], valueType: "Object" }
     ];
   }
 
   if (node.type === "retrieval") {
-    return [{ nodeId: node.id, nodeName: node.name, name: "result", value: `${node.id}.result`, valueType: "Array[Object]" }];
+    return [{ nodeId: node.id, nodeName: node.name, name: "result", value: `${node.id}.result`, valueSelector: [node.id, "result"], valueType: "Array[Object]" }];
   }
 
   return [];
@@ -85,13 +105,32 @@ export function getOutputVariables(node: WorkflowNode | undefined): OutputVariab
   }
 
   return node.config.outputVariables.map((item, index) => {
-    const value = item && typeof item === "object" ? (item as Partial<OutputVariable>) : {};
+    const value = item && typeof item === "object"
+      ? (item as Partial<OutputVariable> & { value?: unknown })
+      : {};
+    const valueSelector = Array.isArray(value.valueSelector)
+      ? value.valueSelector.filter((part): part is string => typeof part === "string" && Boolean(part))
+      : typeof value.value === "string" && value.value
+        ? value.value.split(".").filter(Boolean)
+        : [];
     return {
       id: typeof value.id === "string" && value.id ? value.id : `output-${index}`,
       name: typeof value.name === "string" ? value.name : "",
-      value: typeof value.value === "string" ? value.value : ""
+      valueSelector,
+      valueType: typeof value.valueType === "string" && value.valueType ? value.valueType : legacyValueType(valueSelector)
     };
   });
+}
+
+export function getOutputVariableError(outputs: OutputVariable[]): string {
+  if (outputs.length === 0) return "至少需要配置一个输出变量";
+  if (outputs.some((item) => !item.name.trim())) return "输出变量名称不能为空";
+  if (outputs.some((item) => !OUTPUT_NAME_PATTERN.test(item.name.trim()))) return "输出变量名称只能包含字母、数字和下划线，且不能以数字开头";
+  const names = outputs.map((item) => item.name.trim());
+  if (new Set(names).size !== names.length) return "输出变量名称不能重复";
+  if (outputs.some((item) => item.valueSelector.length < 2)) return "输出变量值不能为空";
+  if (outputs.some((item) => !OUTPUT_VALUE_TYPES.has(item.valueType))) return "输出变量类型不受支持";
+  return "";
 }
 
 export function getWorkflowValidationError(nodes: WorkflowNode[], edges: WorkflowEdge[]): string {
@@ -99,17 +138,12 @@ export function getWorkflowValidationError(nodes: WorkflowNode[], edges: Workflo
 
   for (const expose of exposes) {
     const outputs = getOutputVariables(expose);
-    if (outputs.length === 0) {
-      return `输出节点“${expose.name}”至少需要配置一个输出变量`;
-    }
-    const names = outputs.map((item) => item.name.trim());
-    if (outputs.some((item) => !item.name.trim() || !item.value.trim()) || new Set(names).size !== names.length) {
-      return `输出节点“${expose.name}”的变量名称和值不能为空，且名称必须唯一`;
-    }
+    const outputError = getOutputVariableError(outputs);
+    if (outputError) return `输出节点“${expose.name}”${outputError}`;
     const reachableValues = new Set(getReachableUpstreamVariables(expose.id, nodes, edges).map((item) => item.value));
-    const unreachable = outputs.find((item) => !reachableValues.has(item.value));
+    const unreachable = outputs.find((item) => !reachableValues.has(outputSelectorToValue(item.valueSelector.slice(0, 2))));
     if (unreachable) {
-      return `输出节点“${expose.name}”引用了不可达变量 ${unreachable.value}`;
+      return `输出节点“${expose.name}”引用了不可达变量 ${outputSelectorToValue(unreachable.valueSelector)}`;
     }
   }
 

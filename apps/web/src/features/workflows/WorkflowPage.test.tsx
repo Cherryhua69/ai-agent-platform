@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useCanvasConfig } from "./useCanvasConfig";
-import { WorkflowPage } from "./WorkflowPage";
+import { deleteSelectedEdges, WorkflowPage } from "./WorkflowPage";
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -257,6 +257,7 @@ describe("WorkflowPage", () => {
     expect(screen.getByText("点击画布放置注释框")).toBeInTheDocument();
     fireEvent.click(pane as Element, { clientX: 700, clientY: 360 });
     await waitFor(() => expect(screen.getAllByText("注释").length).toBeGreaterThan(0));
+    expect(screen.queryByRole("complementary", { name: "节点配置" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "添加节点" }));
     fireEvent.click(screen.getByRole("button", { name: "添加条件节点" }));
@@ -284,7 +285,8 @@ describe("WorkflowPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "添加输出节点" }));
     fireEvent.click(pane as Element, { clientX: 840, clientY: 450 });
     const placedOutputButton = await screen.findByRole("button", { name: "输出" });
-    expect(placedOutputButton.textContent).toContain("请配置输出变量");
+    expect(placedOutputButton.querySelector(".workflow-node-icon")).toBeInTheDocument();
+    expect(placedOutputButton.textContent).not.toContain("请配置输出变量");
     const placedOutputNode = placedOutputButton.closest(".react-flow__node");
     expect(placedOutputNode?.querySelector('.workflow-handle-left[data-handleid="left"]')).toBeInTheDocument();
     expect(placedOutputNode?.querySelector('.workflow-handle-right[data-handleid="right"]')).not.toBeInTheDocument();
@@ -1121,7 +1123,7 @@ describe("WorkflowPage", () => {
     expect(screen.getByLabelText("输出变量名")).toHaveValue("");
     expect(screen.getByLabelText("设置变量值")).toHaveValue("");
     expect(screen.queryByRole("option", { name: /LLM/ })).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText("输出节点“孤立输出”的变量名称和值不能为空，且名称必须唯一")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("输出节点“孤立输出”输出变量名称不能为空")).toBeInTheDocument());
     expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT")).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: "输出" }));
@@ -1130,16 +1132,29 @@ describe("WorkflowPage", () => {
     expect(outputNode?.querySelector('.workflow-handle-left[data-handleid="left"]')).toBeInTheDocument();
     expect(outputNode?.querySelector('.workflow-handle-right[data-handleid="right"]')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "添加输出变量" }));
-    fireEvent.change(screen.getByLabelText("输出变量名"), { target: { value: "text" } });
+    expect(screen.getByRole("group", { name: "LLM" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "用户输入" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "LLM / text String" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "LLM / reasoning_content String" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "LLM / usage Object" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "用户输入 / 问题 String" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("设置变量值"), { target: { value: "node-llm.text" } });
+    expect(screen.getByLabelText("输出变量名")).toHaveValue("text");
     expect(screen.getByText("LLM / text String")).toBeInTheDocument();
-    expect((screen.getByRole("button", { name: "输出" })).textContent).toContain("text → node-llm.text");
+    expect((screen.getByRole("button", { name: "输出" })).textContent).toContain("text ← LLM / text · String");
 
-    await waitFor(() => expect(screen.getByText("输出节点“孤立输出”的变量名称和值不能为空，且名称必须唯一")).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText("输出变量名"), { target: { value: "bad name" } });
+    expect(screen.getByText(/名称只能包含字母/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("输出变量名"), { target: { value: "text" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "添加输出变量" }));
+    const valueSelectors = screen.getAllByLabelText("设置变量值");
+    fireEvent.change(valueSelectors[1], { target: { value: "node-llm.usage" } });
+    expect(screen.getAllByLabelText("输出变量名")[1]).toHaveValue("usage");
+    fireEvent.click(screen.getByRole("button", { name: "上移输出变量 2" }));
+    expect(screen.getAllByLabelText("输出变量名")[0]).toHaveValue("usage");
+
+    await waitFor(() => expect(screen.getByText("输出节点“孤立输出”输出变量名称不能为空")).toBeInTheDocument());
     expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT")).toBe(false);
 
     const emptyOutputNode = document.querySelector('[data-id="node-output-empty"]');
@@ -1159,7 +1174,10 @@ describe("WorkflowPage", () => {
         expect.objectContaining({
           id: "node-output",
           config: expect.objectContaining({
-            outputVariables: [expect.objectContaining({ name: "text", value: "node-llm.text" })]
+            outputVariables: [
+              expect.objectContaining({ name: "usage", valueSelector: ["node-llm", "usage"], valueType: "Object" }),
+              expect.objectContaining({ name: "text", valueSelector: ["node-llm", "text"], valueType: "String" })
+            ]
           })
         })
       ])
@@ -1170,7 +1188,7 @@ describe("WorkflowPage", () => {
     fireEvent.click(within(llmNode as HTMLElement).getByRole("button", { name: "删除节点" }));
     await waitFor(() => expect(screen.queryByRole("option", { name: "LLM / text String" })).not.toBeInTheDocument());
     expect(screen.queryByRole("option", { name: "用户输入 / 问题 String" })).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText("输出节点“输出”引用了不可达变量 node-llm.text")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/输出节点“输出”引用了不可达变量 node-llm\./)).toBeInTheDocument());
     expect(fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT")).toHaveLength(putCallsBeforeDeletingLlm);
   });
 
@@ -1301,18 +1319,24 @@ describe("WorkflowPage", () => {
         };
       }
 
-      if (init?.method === "POST" && url.endsWith("/api/agents/agent-after-sale/runs")) {
+      if (init?.method === "POST" && url.endsWith("/api/agents/agent-after-sale/runs/stream")) {
         runCount += 1;
+        const answer = runCount === 1 ? "第一轮回复" : "第二轮回复";
+        const chunks = [
+          `${JSON.stringify({ type: "delta", text: answer.slice(0, 3) })}\n`,
+          `${JSON.stringify({ type: "delta", text: answer.slice(3) })}\n`,
+          `${JSON.stringify({ type: "done", runId: `run_canvas_${runCount}` })}\n`
+        ];
+        let chunkIndex = 0;
         return {
           ok: true,
-          json: async () => ({
-            id: `run_canvas_${runCount}`,
-            agentId: "agent-after-sale",
-            status: "success",
-            costCny: 0.06,
-            finalOutput: runCount === 1 ? "第一轮回复" : "第二轮回复",
-            steps: [{ id: "step-llm", type: "llm", title: "LLM Decision", status: "success", latencyMs: 120 }]
-          })
+          body: {
+            getReader: () => ({
+              read: async () => chunkIndex < chunks.length
+                ? { done: false, value: new TextEncoder().encode(chunks[chunkIndex++]) }
+                : { done: true, value: undefined }
+            })
+          }
         };
       }
 
@@ -1351,11 +1375,12 @@ describe("WorkflowPage", () => {
     });
     fireEvent.click(send);
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/agents/agent-after-sale/runs", {
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/agents/agent-after-sale/runs/stream", {
       body: JSON.stringify({
         userInput: "第一轮问题",
         modelProviderId: "model_provider_local",
-        knowledgeBaseIds: ["kb-after-sale"]
+        knowledgeBaseIds: ["kb-after-sale"],
+        conversationHistory: []
       }),
       headers: { "Content-Type": "application/json" },
       method: "POST"
@@ -1368,6 +1393,16 @@ describe("WorkflowPage", () => {
     fireEvent.click(send);
 
     expect(await within(preview).findByText("第二轮回复")).toBeInTheDocument();
+    const streamCalls = fetchMock.mock.calls.filter(([input, init]) => init?.method === "POST" && String(input).endsWith("/runs/stream"));
+    expect(JSON.parse(String(streamCalls[1]?.[1]?.body))).toEqual({
+      userInput: "第二轮问题",
+      modelProviderId: "model_provider_local",
+      knowledgeBaseIds: ["kb-after-sale"],
+      conversationHistory: [
+        { role: "user", content: "第一轮问题\n附件：order.txt、one.txt、two.txt" },
+        { role: "assistant", content: "第一轮回复" }
+      ]
+    });
     expect(within(preview).getByText(/第一轮问题/)).toBeInTheDocument();
     expect(within(preview).getByText(/第二轮问题/)).toBeInTheDocument();
 
@@ -1378,6 +1413,69 @@ describe("WorkflowPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "用户输入" }));
     expect(screen.queryByRole("complementary", { name: "测试预览" })).not.toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "节点配置" })).toBeInTheDocument();
+  });
+
+  it("edits comments inline without opening the inspector and saves every change", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/workflows") && !init?.method) {
+        return {
+          ok: true,
+          json: async () => [{
+            id: "workflow-after-sale",
+            agentId: "agent-after-sale",
+            name: "Comment workflow",
+            status: "ready",
+            toolHealthStatus: "online",
+            nodes: [
+              { id: "node-trigger", type: "trigger", name: "用户输入", status: "success" },
+              { id: "node-comment", type: "comment", name: "注释", status: "success", description: "原始说明" }
+            ]
+          }]
+        };
+      }
+      if (url.endsWith("/api/model-providers") || url.endsWith("/api/knowledge-bases")) {
+        return { ok: true, json: async () => [] };
+      }
+      if (init?.method === "PUT" && url.endsWith("/api/workflows/workflow-after-sale")) {
+        return { ok: true, json: async () => JSON.parse(String(init.body)) };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<WorkflowPage />, { wrapper: createWrapper() });
+
+    const comment = await screen.findByText("原始说明");
+    const commentNode = comment.closest(".workflow-comment-node") as HTMLElement;
+    fireEvent.click(commentNode);
+    expect(screen.queryByRole("complementary", { name: "节点配置" })).not.toBeInTheDocument();
+
+    fireEvent.doubleClick(commentNode);
+    const editor = screen.getByRole("textbox", { name: "编辑注释" });
+    expect(editor).toHaveValue("原始说明");
+    fireEvent.change(editor, { target: { value: "新的流程备注" } });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "/api/workflows/workflow-after-sale",
+      expect.objectContaining({ method: "PUT" })
+    ));
+    const saveCalls = fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT");
+    const payload = JSON.parse(String(saveCalls.at(-1)?.[1]?.body));
+    expect(payload.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "node-comment", description: "新的流程备注" })
+    ]));
+  });
+
+  it("deletes only selected edges for Delete and Backspace", () => {
+    const edges = [
+      { id: "selected", source: "a", target: "b", selected: true },
+      { id: "kept", source: "b", target: "c", selected: false }
+    ];
+
+    expect(deleteSelectedEdges(edges, "Delete").map((edge) => edge.id)).toEqual(["kept"]);
+    expect(deleteSelectedEdges(edges, "Backspace").map((edge) => edge.id)).toEqual(["kept"]);
+    expect(deleteSelectedEdges(edges, "Enter")).toBe(edges);
   });
 
   it("hides node success status and allows deleting configurable nodes except the default user input", async () => {

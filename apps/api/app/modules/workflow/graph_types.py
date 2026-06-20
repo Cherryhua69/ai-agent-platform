@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from collections.abc import Callable
 from typing import Annotated, Any, TypedDict
 
 
@@ -19,6 +20,8 @@ class WorkflowState(TypedDict, total=False):
     trace_steps: Annotated[list[dict[str, Any]], merge_lists]
     route_decisions: Annotated[dict[str, str], merge_dicts]
     iteration_counts: Annotated[dict[str, int], merge_dicts]
+    stream_sink: Callable[[str], None]
+    stream_node_ids: set[str]
 
 
 class WorkflowGraphValidationError(ValueError):

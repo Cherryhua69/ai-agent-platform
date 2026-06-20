@@ -1,4 +1,6 @@
 from app.modules.workflow.graph_compiler import GraphCompiler
+from collections.abc import Callable
+
 from app.modules.workflow.graph_types import (
     WorkflowExecutionError,
     WorkflowExecutionResult,
@@ -14,7 +16,13 @@ class GraphExecutor:
         self._compiler = compiler
         self._recursion_limit = recursion_limit
 
-    def execute(self, workflow: WorkflowRead, inputs: dict[str, object]) -> WorkflowExecutionResult:
+    def execute(
+        self,
+        workflow: WorkflowRead,
+        inputs: dict[str, object],
+        stream_sink: Callable[[str], None] | None = None,
+        stream_node_ids: set[str] | None = None,
+    ) -> WorkflowExecutionResult:
         """校验、编译并执行工作流。"""
         validate_workflow_graph(workflow)
         graph = self._compiler.compile(workflow)
@@ -26,6 +34,9 @@ class GraphExecutor:
             "route_decisions": {},
             "iteration_counts": {},
         }
+        if stream_sink is not None:
+            initial_state["stream_sink"] = stream_sink
+            initial_state["stream_node_ids"] = stream_node_ids or set()
         loop_budget = sum(
             int(node.config.get("maxIterations", 0)) * (len(workflow.nodes) + 2)
             for node in workflow.nodes

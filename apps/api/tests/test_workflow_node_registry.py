@@ -38,6 +38,11 @@ class FakeModelClient:
         self.prompt = prompt
         return FakeModelResult(content="模型回答", usage={"total_tokens": 8})
 
+    def stream(self, provider, prompt):
+        self.prompt = prompt
+        yield "模型"
+        yield "回答"
+
 
 class FakeKnowledgeRepository:
     def __init__(self) -> None:
@@ -56,11 +61,16 @@ def registry() -> tuple[NodeRegistry, FakeModelRepository, FakeModelClient, Fake
 
 
 def test_resolve_variable_supports_inputs_and_node_output() -> None:
-    state = {"inputs": {"question": "退款规则"}, "node_outputs": {"search": {"result": "资料"}}}
+    state = {
+        "inputs": {"question": "退款规则"},
+        "node_outputs": {"search": {"result": "资料"}, "answer": {"usage": {"total_tokens": 12}}},
+    }
 
     assert resolve_variable(state, "question") == "退款规则"
     assert resolve_variable(state, "trigger.question") == "退款规则"
     assert resolve_variable(state, "search.result") == "资料"
+    assert resolve_variable(state, ["answer", "usage", "total_tokens"]) == 12
+    assert resolve_variable(state, ["userinput", "question"]) == "退款规则"
 
 
 def test_trigger_supports_real_userinput_variable_contract() -> None:
@@ -86,6 +96,27 @@ def test_trigger_supports_real_userinput_variable_contract() -> None:
     update = handler({"inputs": {"question": "退款规则", "ignored": "x"}})
 
     assert update["inputs"] == {"question": "退款规则"}
+
+
+def test_trigger_preserves_conversation_history_for_downstream_llm() -> None:
+    current_registry, _, _, _ = registry()
+    handler = current_registry.build_handler(
+        node("node-trigger", "trigger", {"inputFields": [{"variable": "userinput.question"}]})
+    )
+
+    update = handler(
+        {
+            "inputs": {
+                "question": "再讲一个",
+                "conversationHistory": "用户：讲个笑话\n助手：从前有一只猫。",
+            }
+        }
+    )
+
+    assert update["inputs"] == {
+        "question": "再讲一个",
+        "conversationHistory": "用户：讲个笑话\n助手：从前有一只猫。",
+    }
 
 
 def test_trigger_and_retrieval_handlers_write_expected_state() -> None:
@@ -119,7 +150,10 @@ def test_llm_handler_builds_prompt_and_normalizes_result() -> None:
         )
     )
     state = {
-        "inputs": {"question": "退款规则"},
+        "inputs": {
+            "question": "再讲一个",
+            "conversationHistory": "用户：讲个笑话\n助手：从前有一只猫。",
+        },
         "node_outputs": {"search": {"result": "知识片段"}},
     }
 
@@ -127,8 +161,11 @@ def test_llm_handler_builds_prompt_and_normalizes_result() -> None:
 
     assert model_repository.requested_id == "provider-1"
     assert "你是客服" in model_client.prompt
-    assert "退款规则" in model_client.prompt
+    assert "再讲一个" in model_client.prompt
     assert "知识片段" in model_client.prompt
+    assert "用户：讲个笑话" in model_client.prompt
+    assert "助手：从前有一只猫。" in model_client.prompt
+    assert model_client.prompt.index("从前有一只猫") < model_client.prompt.index("再讲一个")
     assert update["node_outputs"]["answer"] == {
         "text": "模型回答",
         "reasoning_content": "思考过程",
@@ -149,6 +186,29 @@ def test_expose_handler_maps_declared_outputs() -> None:
     update = handler({"inputs": {"question": "退款规则"}, "node_outputs": {"answer": {"text": "可以退款"}}})
 
     assert update["final_output"] == {"answer": "可以退款", "question": "退款规则"}
+
+
+def test_expose_handler_maps_structured_selectors_and_nested_values() -> None:
+    current_registry, _, _, _ = registry()
+    handler = current_registry.build_handler(
+        node(
+            "expose",
+            "expose",
+            {
+                "outputVariables": [
+                    {
+                        "name": "tokens",
+                        "valueSelector": ["answer", "usage", "total_tokens"],
+                        "valueType": "Number",
+                    }
+                ]
+            },
+        )
+    )
+
+    update = handler({"inputs": {}, "node_outputs": {"answer": {"usage": {"total_tokens": 12}}}})
+
+    assert update["final_output"] == {"tokens": 12}
 
 
 def test_condition_handler_records_selected_route() -> None:
@@ -227,6 +287,34 @@ def test_llm_uses_current_user_input_when_user_prompt_is_empty() -> None:
 
     assert model_repository.requested_id == "configured-provider"
     assert model_client.prompt == "请用中文回答我"
+
+
+def test_llm_streams_only_final_text_for_the_selected_output_node() -> None:
+    current_registry, _, _, _ = registry()
+    streamed: list[str] = []
+    handler = current_registry.build_handler(
+        node(
+            "answer",
+            "llm",
+            {
+                "modelProviderId": "configured-provider",
+                "userPrompt": "{{userinput.question}}",
+            },
+        )
+    )
+
+    update = handler(
+        {
+            "inputs": {"question": "退款规则"},
+            "stream_sink": streamed.append,
+            "stream_node_ids": {"answer"},
+        }
+    )
+
+    assert streamed == ["模型", "回答"]
+    assert update["node_outputs"]["answer"]["text"] == "模型回答"
+    assert "reasoning_content" not in "".join(streamed)
+    assert "usage" not in "".join(streamed)
 
 
 def test_loop_handler_continues_three_times_then_exits() -> None:
