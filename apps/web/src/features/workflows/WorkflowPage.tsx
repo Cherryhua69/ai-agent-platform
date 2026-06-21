@@ -71,6 +71,13 @@ const defaultUserInputNode = fallbackNodes[0];
 type CanvasMode = "select" | "pan";
 type PendingPlacement = "llm" | "comment" | "expose" | "condition" | "loop" | null;
 type PreviewMessage = { id: string; role: "user" | "assistant" | "error"; content: string };
+type PreviewDebugInfo = {
+  runId: string;
+  modelProviderId: string;
+  knowledgeBaseCount: number;
+  conversationHistoryCount: number;
+  status: "idle" | "streaming" | "success" | "partial" | "error";
+};
 
 type BranchNodeConfig = {
   variable: string;
@@ -463,6 +470,13 @@ export function WorkflowPage() {
   const [previewFileValues, setPreviewFileValues] = useState<Record<string, File[]>>({});
   const [isPreviewStreaming, setIsPreviewStreaming] = useState(false);
   const [previewStreamError, setPreviewStreamError] = useState(false);
+  const [previewDebugInfo, setPreviewDebugInfo] = useState<PreviewDebugInfo>({
+    runId: "",
+    modelProviderId: "",
+    knowledgeBaseCount: 0,
+    conversationHistoryCount: 0,
+    status: "idle"
+  });
   const [isInputTypeMenuOpen, setIsInputTypeMenuOpen] = useState(false);
   const agents = agentsQuery.data ?? emptyAgents;
   const workflows = workflowsQuery.data ?? emptyWorkflows;
@@ -610,6 +624,13 @@ export function WorkflowPage() {
     setPreviewTextValues({});
     setPreviewFileValues({});
     setPreviewStreamError(false);
+    setPreviewDebugInfo({
+      runId: "",
+      modelProviderId: "",
+      knowledgeBaseCount: 0,
+      conversationHistoryCount: 0,
+      status: "idle"
+    });
   }
 
   async function handleRunDebug(event: FormEvent<HTMLFormElement>) {
@@ -648,8 +669,16 @@ export function WorkflowPage() {
       .filter((message): message is PreviewMessage & { role: "user" | "assistant" } => message.role !== "error" && Boolean(message.content))
       .slice(-20)
       .map(({ role, content }) => ({ role, content }));
+    setPreviewDebugInfo({
+      runId: "",
+      modelProviderId: modelProviderId || "未选择",
+      knowledgeBaseCount: knowledgeBaseIds.length,
+      conversationHistoryCount: conversationHistory.length,
+      status: "streaming"
+    });
+    let hasVisibleAssistantOutput = false;
     try {
-      await streamAgentRun(
+      const runId = await streamAgentRun(
         {
         agentId: workflow?.agentId ?? "agent-after-sale",
         userInput: userInputValue || messageContent,
@@ -658,16 +687,27 @@ export function WorkflowPage() {
         conversationHistory
         },
         (chunk) => {
+          if (chunk) {
+            hasVisibleAssistantOutput = true;
+          }
           setPreviewMessages((messages) => messages.map((message) => (
             message.id === assistantMessageId ? { ...message, content: message.content + chunk } : message
           )));
         }
       );
-    } catch {
+      setPreviewDebugInfo((debugInfo) => ({ ...debugInfo, runId, status: runId ? "success" : "partial" }));
+    } catch (error) {
       setPreviewStreamError(true);
+      setPreviewDebugInfo((debugInfo) => ({ ...debugInfo, status: hasVisibleAssistantOutput ? "partial" : "error" }));
+      const errorMessage = error instanceof Error && error.message
+        ? error.message
+        : "运行失败，请检查模型与工作流配置后重试。";
+      if (hasVisibleAssistantOutput) {
+        return;
+      }
       setPreviewMessages((messages) => messages.map((message) => (
         message.id === assistantMessageId
-          ? { ...message, role: "error", content: "运行失败，请检查模型与工作流配置后重试。" }
+          ? { ...message, role: "error", content: errorMessage }
           : message
       )));
     } finally {
@@ -1612,6 +1652,31 @@ export function WorkflowPage() {
                 {isPreviewStreaming ? "生成中..." : "发送"}
               </button>
             </form>
+            <details className="workflow-preview-debug">
+              <summary>调试信息</summary>
+              <dl>
+                <div>
+                  <dt>运行状态</dt>
+                  <dd>{previewDebugInfo.status}</dd>
+                </div>
+                <div>
+                  <dt>最近运行 ID</dt>
+                  <dd>{previewDebugInfo.runId || "等待运行"}</dd>
+                </div>
+                <div>
+                  <dt>模型配置</dt>
+                  <dd>{previewDebugInfo.modelProviderId || modelProviderId || "未选择"}</dd>
+                </div>
+                <div>
+                  <dt>知识库数量</dt>
+                  <dd>{previewDebugInfo.knowledgeBaseCount}</dd>
+                </div>
+                <div>
+                  <dt>历史消息数</dt>
+                  <dd>{previewDebugInfo.conversationHistoryCount}</dd>
+                </div>
+              </dl>
+            </details>
           </aside>
         ) : null}
 

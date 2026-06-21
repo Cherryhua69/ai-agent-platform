@@ -1393,6 +1393,9 @@ describe("WorkflowPage", () => {
     fireEvent.click(send);
 
     expect(await within(preview).findByText("第二轮回复")).toBeInTheDocument();
+    expect(within(preview).getByText("调试信息")).toBeInTheDocument();
+    expect(within(preview).getByText("run_canvas_2")).toBeInTheDocument();
+    expect(within(preview).getByText("历史消息数").nextSibling).toHaveTextContent("2");
     const streamCalls = fetchMock.mock.calls.filter(([input, init]) => init?.method === "POST" && String(input).endsWith("/runs/stream"));
     expect(JSON.parse(String(streamCalls[1]?.[1]?.body))).toEqual({
       userInput: "第二轮问题",
@@ -1413,6 +1416,180 @@ describe("WorkflowPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "用户输入" }));
     expect(screen.queryByRole("complementary", { name: "测试预览" })).not.toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "节点配置" })).toBeInTheDocument();
+  });
+
+  it("shows the streaming error message in the preview conversation", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/workflows")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "workflow-after-sale",
+              agentId: "agent-after-sale",
+              name: "Chat workflow",
+              status: "ready",
+              toolHealthStatus: "online",
+              nodes: [
+                {
+                  id: "node-trigger",
+                  type: "trigger",
+                  name: "User input",
+                  status: "success",
+                  config: {
+                    inputFields: [
+                      { id: "text_input_1", label: "text_input_1", variable: "userinput.text_input_1", kind: "text", required: true }
+                    ]
+                  }
+                },
+                { id: "node-llm", type: "llm", name: "LLM", status: "success" }
+              ]
+            }
+          ]
+        };
+      }
+
+      if (url.endsWith("/api/model-providers")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "model_provider_local",
+              name: "Local model",
+              providerType: "openai-compatible",
+              baseUrl: "mock://local",
+              model: "local-smoke",
+              apiKeyPreview: "sk-...ocal",
+              status: "online",
+              isDefault: true
+            }
+          ]
+        };
+      }
+
+      if (url.endsWith("/api/knowledge-bases")) {
+        return { ok: true, json: async () => [] };
+      }
+
+      if (init?.method === "POST" && url.endsWith("/api/agents/agent-after-sale/runs/stream")) {
+        const chunks = [`${JSON.stringify({ type: "error", message: "模型上下文过长，请缩短历史后重试" })}\n`];
+        let chunkIndex = 0;
+        return {
+          ok: true,
+          body: {
+            getReader: () => ({
+              read: async () => chunkIndex < chunks.length
+                ? { done: false, value: new TextEncoder().encode(chunks[chunkIndex++]) }
+                : { done: true, value: undefined }
+            })
+          }
+        };
+      }
+
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<WorkflowPage />, { wrapper: createWrapper() });
+
+    fireEvent.click(await screen.findByRole("button", { name: "测试运行" }));
+    const preview = screen.getByRole("complementary", { name: "测试预览" });
+    fireEvent.change(within(preview).getByRole("textbox", { name: "text_input_1" }), { target: { value: "写一个 c++ 代码给我" } });
+    fireEvent.click(within(preview).getByRole("button", { name: "发送" }));
+
+    expect(await within(preview).findByText("模型上下文过长，请缩短历史后重试")).toBeInTheDocument();
+    expect(within(preview).getByText("运行状态").nextSibling).toHaveTextContent("error");
+  });
+
+  it("keeps streamed assistant text when a later stream error arrives", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/workflows")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "workflow-after-sale",
+              agentId: "agent-after-sale",
+              name: "Chat workflow",
+              status: "ready",
+              toolHealthStatus: "online",
+              nodes: [
+                {
+                  id: "node-trigger",
+                  type: "trigger",
+                  name: "User input",
+                  status: "success",
+                  config: {
+                    inputFields: [
+                      { id: "text_input_1", label: "text_input_1", variable: "userinput.text_input_1", kind: "text", required: true }
+                    ]
+                  }
+                },
+                { id: "node-llm", type: "llm", name: "LLM", status: "success" }
+              ]
+            }
+          ]
+        };
+      }
+
+      if (url.endsWith("/api/model-providers")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "model_provider_local",
+              name: "Local model",
+              providerType: "openai-compatible",
+              baseUrl: "mock://local",
+              model: "local-smoke",
+              apiKeyPreview: "sk-...ocal",
+              status: "online",
+              isDefault: true
+            }
+          ]
+        };
+      }
+
+      if (url.endsWith("/api/knowledge-bases")) {
+        return { ok: true, json: async () => [] };
+      }
+
+      if (init?.method === "POST" && url.endsWith("/api/agents/agent-after-sale/runs/stream")) {
+        const chunks = [
+          `${JSON.stringify({ type: "delta", text: "这是已经生成的 C++ 回答片段" })}\n`,
+          `${JSON.stringify({ type: "error", message: "模型连接中断" })}\n`
+        ];
+        let chunkIndex = 0;
+        return {
+          ok: true,
+          body: {
+            getReader: () => ({
+              read: async () => chunkIndex < chunks.length
+                ? { done: false, value: new TextEncoder().encode(chunks[chunkIndex++]) }
+                : { done: true, value: undefined }
+            })
+          }
+        };
+      }
+
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<WorkflowPage />, { wrapper: createWrapper() });
+
+    fireEvent.click(await screen.findByRole("button", { name: "测试运行" }));
+    const preview = screen.getByRole("complementary", { name: "测试预览" });
+    fireEvent.change(within(preview).getByRole("textbox", { name: "text_input_1" }), { target: { value: "写一个 c++ 代码给我" } });
+    fireEvent.click(within(preview).getByRole("button", { name: "发送" }));
+
+    expect(await within(preview).findByText("这是已经生成的 C++ 回答片段")).toBeInTheDocument();
+    expect(within(preview).queryByText("模型连接中断")).not.toBeInTheDocument();
+    expect(within(preview).getByText("运行状态").nextSibling).toHaveTextContent("partial");
   });
 
   it("edits comments inline without opening the inspector and saves every change", async () => {

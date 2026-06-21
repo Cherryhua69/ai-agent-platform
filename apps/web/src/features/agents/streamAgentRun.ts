@@ -30,6 +30,7 @@ export async function streamAgentRun(
   const decoder = new TextDecoder();
   let buffer = "";
   let runId = "";
+  let hasDelta = false;
 
   function consumeLine(line: string) {
     if (!line.trim()) {
@@ -37,9 +38,12 @@ export async function streamAgentRun(
     }
     const event = JSON.parse(line) as StreamEvent;
     if (event.type === "delta") {
+      hasDelta = true;
       onDelta(event.text);
     } else if (event.type === "done") {
       runId = event.runId;
+    } else if (hasDelta) {
+      runId = "";
     } else {
       throw new Error(event.message);
     }

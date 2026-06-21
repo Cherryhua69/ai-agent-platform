@@ -17,6 +17,9 @@ from app.modules.workflow.schemas import WorkflowRead
 
 
 class AgentRunService:
+    MAX_CONVERSATION_HISTORY_CHARS = 3000
+    MAX_CONVERSATION_MESSAGE_CHARS = 2000
+
     def __init__(
         self,
         traces: TraceRepository,
@@ -196,6 +199,9 @@ class AgentRunService:
                     yield json.dumps({"type": "delta", "text": text}, ensure_ascii=False) + "\n"
                 continue
             if event_type == "error":
+                if emitted_text:
+                    yield json.dumps({"type": "done", "runId": ""}, ensure_ascii=False) + "\n"
+                    return
                 yield json.dumps({"type": "error", "message": "模型运行失败，请检查配置后重试。"}, ensure_ascii=False) + "\n"
                 return
             run = payload
@@ -208,9 +214,26 @@ class AgentRunService:
     def _conversation_history_text(request: AgentRunRequest) -> str:
         if not request.conversation_history:
             return ""
-        role_labels = {"user": "用户", "assistant": "助手"}
-        messages = "\n".join(f"{role_labels[item.role]}：{item.content}" for item in request.conversation_history)
-        return f"历史对话：\n{messages}"
+        role_labels = {"user": "user", "assistant": "assistant"}
+        header = "Conversation history:\n"
+        budget = AgentRunService.MAX_CONVERSATION_HISTORY_CHARS - len(header)
+        lines: list[str] = []
+        used = 0
+        for item in reversed(request.conversation_history):
+            prefix = f"{role_labels[item.role]}: "
+            message_budget = max(0, min(AgentRunService.MAX_CONVERSATION_MESSAGE_CHARS, budget - used - len(prefix) - 1))
+            if message_budget <= 0:
+                break
+            content = item.content
+            if len(content) > message_budget:
+                marker = "...[trimmed] "
+                content = f"{marker}{content[-max(0, message_budget - len(marker)):]}"
+            line = f"{prefix}{content}"
+            lines.append(line)
+            used += len(line) + 1
+        messages = "\n".join(reversed(lines))
+        return f"{header}{messages}" if messages else ""
+
 
     @classmethod
     def _graph_inputs(cls, workflow: WorkflowRead, request: AgentRunRequest) -> dict[str, object]:

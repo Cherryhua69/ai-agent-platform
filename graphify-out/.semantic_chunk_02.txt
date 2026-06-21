@@ -1,0 +1,12 @@
+G:\AI\AI-Agent\docs\superpowers\plans\2026-06-15-workflow-react-flow-editor.md
+G:\AI\AI-Agent\docs\superpowers\plans\2026-06-18-langgraph-workflow-output-node.md
+G:\AI\AI-Agent\docs\superpowers\plans\2026-06-21-structured-workflow-output-node.md
+G:\AI\AI-Agent\docs\superpowers\specs\2026-06-12-agent-page-real-function-design.md
+G:\AI\AI-Agent\docs\superpowers\specs\2026-06-15-workflow-react-flow-editor-design.md
+G:\AI\AI-Agent\docs\superpowers\specs\2026-06-18-langgraph-workflow-output-node-design.md
+G:\AI\AI-Agent\docs\superpowers\specs\2026-06-19-workflow-inspector-actions-design.md
+G:\AI\AI-Agent\docs\superpowers\specs\2026-06-20-workflow-chat-preview-design.md
+G:\AI\AI-Agent\docs\superpowers\specs\2026-06-20-workflow-node-interactions-design.md
+G:\AI\AI-Agent\pnpm-workspace.yaml
+G:\AI\AI-Agent\apps\web\src\assets\logo-web.png
+G:\AI\AI-Agent\others\logo.png

@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.modules.agent.run_service import AgentRunService
+from app.modules.agent.schemas import AgentRunRequest
 from app.modules.workflow.schemas import WorkflowRead
 
 
@@ -32,6 +33,43 @@ def test_streaming_uses_llm_selected_by_structured_output_variable() -> None:
     )
 
     assert AgentRunService._stream_output_node_ids(workflow) == {"answer"}
+
+
+def test_conversation_history_is_bounded_to_recent_context() -> None:
+    request = AgentRunRequest.model_validate(
+        {
+            "userInput": "写一个 c++ 代码给我",
+            "conversationHistory": [
+                {"role": "user", "content": "你是谁"},
+                {"role": "assistant", "content": "很长的第一轮回复" * 2000},
+                {"role": "user", "content": "你能干什么"},
+                {"role": "assistant", "content": "很长的第二轮回复" * 2000},
+            ],
+        }
+    )
+
+    history_text = AgentRunService._conversation_history_text(request)
+
+    assert len(history_text) <= AgentRunService.MAX_CONVERSATION_HISTORY_CHARS
+    assert "你能干什么" in history_text
+    assert "很长的第二轮回复" in history_text
+    assert "你是谁" not in history_text
+
+
+def test_stream_run_finishes_when_error_happens_after_visible_delta(monkeypatch) -> None:
+    service = AgentRunService(traces=object())
+
+    def fail_after_stream(*_args, stream_sink=None, **_kwargs):
+        stream_sink("已经生成的回答")
+        raise RuntimeError("trace persistence failed")
+
+    monkeypatch.setattr(service, "simulate_run", fail_after_stream)
+
+    events = list(service.stream_run("agent", AgentRunRequest(userInput="写一个 c++ 代码给我")))
+
+    assert events[0] == '{"type": "delta", "text": "已经生成的回答"}\n'
+    assert any('"type": "done"' in event for event in events)
+    assert not any('"type": "error"' in event for event in events)
 
 
 def test_agent_run_creates_queryable_trace_with_final_output():

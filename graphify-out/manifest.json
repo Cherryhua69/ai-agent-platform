@@ -1,0 +1,912 @@
+{
+  "G:\\AI\\AI-Agent\\apps\\api\\alembic\\env.py": {
+    "mtime": 1781857675.0281303,
+    "ast_hash": "99c79a93d9979b756a197cb830e4f1f7",
+    "semantic_hash": "99c79a93d9979b756a197cb830e4f1f7"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\alembic\\versions\\20260610_0001_create_agent_and_audit_tables.py": {
+    "mtime": 1781190735.2512314,
+    "ast_hash": "87c97f617166ffca004a18aa49ebb610",
+    "semantic_hash": "87c97f617166ffca004a18aa49ebb610"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\alembic\\versions\\20260611_0002_create_knowledge_tables.py": {
+    "mtime": 1781190735.251754,
+    "ast_hash": "1906b45789b439c290d4c39a7d41ca5c",
+    "semantic_hash": "1906b45789b439c290d4c39a7d41ca5c"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\alembic\\versions\\20260611_0003_create_tool_tables.py": {
+    "mtime": 1781190735.2522838,
+    "ast_hash": "48df0f3e01e137b361e04e3a775e9e15",
+    "semantic_hash": "48df0f3e01e137b361e04e3a775e9e15"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\alembic\\versions\\20260611_0004_create_evaluation_tables.py": {
+    "mtime": 1781190735.2528086,
+    "ast_hash": "58796a5c457915bd741e0ce85411e55a",
+    "semantic_hash": "58796a5c457915bd741e0ce85411e55a"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\alembic\\versions\\20260611_0005_create_trace_tables.py": {
+    "mtime": 1781190735.25334,
+    "ast_hash": "98f2e5d6b2af0ded51e79028b87760db",
+    "semantic_hash": "98f2e5d6b2af0ded51e79028b87760db"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\alembic\\versions\\20260611_0006_create_model_provider_tables.py": {
+    "mtime": 1781432792.7672126,
+    "ast_hash": "6d5a062162e6f4bc8d0c7a53460758d2",
+    "semantic_hash": "6d5a062162e6f4bc8d0c7a53460758d2"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\alembic\\versions\\20260616_0007_create_workflow_tables.py": {
+    "mtime": 1781857675.0291307,
+    "ast_hash": "eaccc104e3c88824545398d3bc402768",
+    "semantic_hash": "eaccc104e3c88824545398d3bc402768"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\core\\config.py": {
+    "mtime": 1781190735.2538667,
+    "ast_hash": "1314d899976225d08cdbcc5d5769d752",
+    "semantic_hash": "1314d899976225d08cdbcc5d5769d752"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\core\\database.py": {
+    "mtime": 1781432792.770213,
+    "ast_hash": "a028d0bd15257b97ec532167246068a7",
+    "semantic_hash": "a028d0bd15257b97ec532167246068a7"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\core\\errors.py": {
+    "mtime": 1781190735.2549255,
+    "ast_hash": "cf2fe652b9517db71a382c820650766c",
+    "semantic_hash": "cf2fe652b9517db71a382c820650766c"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\main.py": {
+    "mtime": 1781857675.0291307,
+    "ast_hash": "8742b8a7b36cafc955ccccd0d33978c0",
+    "semantic_hash": "8742b8a7b36cafc955ccccd0d33978c0"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\agent\\models.py": {
+    "mtime": 1781190735.2560675,
+    "ast_hash": "6d7b9ad3df26b993e39c8130cc06044d",
+    "semantic_hash": "6d7b9ad3df26b993e39c8130cc06044d"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\agent\\repository.py": {
+    "mtime": 1781860411.8769934,
+    "ast_hash": "f755e810bfccab9537e5f56c34c8ac81",
+    "semantic_hash": "f755e810bfccab9537e5f56c34c8ac81"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\agent\\router.py": {
+    "mtime": 1781942406.2892673,
+    "ast_hash": "8be514de088774269c5869e3bb1efddf",
+    "semantic_hash": "8be514de088774269c5869e3bb1efddf"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\agent\\run_service.py": {
+    "mtime": 1781977534.358696,
+    "ast_hash": "61adb16dcaad4c3961cd35247f045bd2",
+    "semantic_hash": "61adb16dcaad4c3961cd35247f045bd2"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\agent\\schemas.py": {
+    "mtime": 1781977523.841264,
+    "ast_hash": "db7969a8f78894ec1333d6a4f89d9cd8",
+    "semantic_hash": "db7969a8f78894ec1333d6a4f89d9cd8"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\audit\\models.py": {
+    "mtime": 1781190735.258659,
+    "ast_hash": "6765b3456afeac5ee39ef52205d6713e",
+    "semantic_hash": "6765b3456afeac5ee39ef52205d6713e"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\evaluation\\models.py": {
+    "mtime": 1781190735.2592304,
+    "ast_hash": "f4929bab2646fd207548f3b7130b84dc",
+    "semantic_hash": "f4929bab2646fd207548f3b7130b84dc"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\evaluation\\repository.py": {
+    "mtime": 1781190735.259759,
+    "ast_hash": "1f6dc9bcdcf0bac2d103f3dbf01565d4",
+    "semantic_hash": "1f6dc9bcdcf0bac2d103f3dbf01565d4"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\evaluation\\router.py": {
+    "mtime": 1781190735.2602897,
+    "ast_hash": "31906ea8b7d613077bdbb18c81aeb329",
+    "semantic_hash": "31906ea8b7d613077bdbb18c81aeb329"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\evaluation\\schemas.py": {
+    "mtime": 1781190735.260816,
+    "ast_hash": "ab04e28716945891d318098c2ded028c",
+    "semantic_hash": "ab04e28716945891d318098c2ded028c"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\knowledge\\models.py": {
+    "mtime": 1781190735.2613375,
+    "ast_hash": "e0d9a03e8fa1e8d243f287893b03490c",
+    "semantic_hash": "e0d9a03e8fa1e8d243f287893b03490c"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\knowledge\\repository.py": {
+    "mtime": 1781190735.2618604,
+    "ast_hash": "54bd16ed8b53dd840bf0b7ee63099dde",
+    "semantic_hash": "54bd16ed8b53dd840bf0b7ee63099dde"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\knowledge\\router.py": {
+    "mtime": 1781190735.2623875,
+    "ast_hash": "7648e083e0bb372e8fbe9811a80abc7e",
+    "semantic_hash": "7648e083e0bb372e8fbe9811a80abc7e"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\knowledge\\schemas.py": {
+    "mtime": 1781190735.262911,
+    "ast_hash": "883918618c9da0ddaf69d8f2ddfd939e",
+    "semantic_hash": "883918618c9da0ddaf69d8f2ddfd939e"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\model_provider\\__init__.py": {
+    "mtime": 1781432792.7842138,
+    "ast_hash": "81051bcc2cf1bedf378224b0a93e2877",
+    "semantic_hash": "81051bcc2cf1bedf378224b0a93e2877"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\model_provider\\models.py": {
+    "mtime": 1781432792.7852118,
+    "ast_hash": "a8975e9900cc5cbdb2559f0cd0d6f565",
+    "semantic_hash": "a8975e9900cc5cbdb2559f0cd0d6f565"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\model_provider\\repository.py": {
+    "mtime": 1781452091.9550486,
+    "ast_hash": "a3811509c2bd5dca4d318f5d1bbbb273",
+    "semantic_hash": "a3811509c2bd5dca4d318f5d1bbbb273"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\model_provider\\router.py": {
+    "mtime": 1781452091.9560559,
+    "ast_hash": "a0bb947974e82016d48e2021843fe7f9",
+    "semantic_hash": "a0bb947974e82016d48e2021843fe7f9"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\model_provider\\schemas.py": {
+    "mtime": 1781450248.8585765,
+    "ast_hash": "a3d0b5ac7b8d1765758af19e8267161c",
+    "semantic_hash": "a3d0b5ac7b8d1765758af19e8267161c"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\model_provider\\service.py": {
+    "mtime": 1781977218.0437677,
+    "ast_hash": "ccdcb9d30555e7d4a9aae032e8da6feb",
+    "semantic_hash": "ccdcb9d30555e7d4a9aae032e8da6feb"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\release\\router.py": {
+    "mtime": 1781190735.264026,
+    "ast_hash": "6cef80dc73df9148bc4460d06de076e7",
+    "semantic_hash": "6cef80dc73df9148bc4460d06de076e7"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\release\\schemas.py": {
+    "mtime": 1781190735.2645397,
+    "ast_hash": "a7c3621d5814ffccaf6b979d48d0a3f4",
+    "semantic_hash": "a7c3621d5814ffccaf6b979d48d0a3f4"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\release\\service.py": {
+    "mtime": 1781190735.2652454,
+    "ast_hash": "033225524fa353053bacbd416bcd6855",
+    "semantic_hash": "033225524fa353053bacbd416bcd6855"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\tool\\models.py": {
+    "mtime": 1781190735.2657714,
+    "ast_hash": "34fd7779583059f7528246db9675598a",
+    "semantic_hash": "34fd7779583059f7528246db9675598a"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\tool\\repository.py": {
+    "mtime": 1781190735.266295,
+    "ast_hash": "f4fd314af6c5ffe887136829f346cf26",
+    "semantic_hash": "f4fd314af6c5ffe887136829f346cf26"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\tool\\router.py": {
+    "mtime": 1781190735.267348,
+    "ast_hash": "7629429c45b1a1bc576023b8f74c38eb",
+    "semantic_hash": "7629429c45b1a1bc576023b8f74c38eb"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\tool\\schemas.py": {
+    "mtime": 1781190735.267348,
+    "ast_hash": "c3e9b45d6ac5484efbfea6acb910844c",
+    "semantic_hash": "c3e9b45d6ac5484efbfea6acb910844c"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\trace\\models.py": {
+    "mtime": 1781432792.789211,
+    "ast_hash": "68dd3fda5ae1bdb822c8969bef18c12d",
+    "semantic_hash": "68dd3fda5ae1bdb822c8969bef18c12d"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\trace\\repository.py": {
+    "mtime": 1781432792.791759,
+    "ast_hash": "cd27c7d10eae6ca3cb47d071a0cf9547",
+    "semantic_hash": "cd27c7d10eae6ca3cb47d071a0cf9547"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\trace\\router.py": {
+    "mtime": 1781190735.269664,
+    "ast_hash": "db94480f17dab1618d48bb9647ff9492",
+    "semantic_hash": "db94480f17dab1618d48bb9647ff9492"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\trace\\schemas.py": {
+    "mtime": 1781432792.794759,
+    "ast_hash": "102140456146ba7a6b1341607f4631e4",
+    "semantic_hash": "102140456146ba7a6b1341607f4631e4"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\workflow\\graph_compiler.py": {
+    "mtime": 1781857675.0321298,
+    "ast_hash": "b003c4c8dcd98017968ebb163b39a183",
+    "semantic_hash": "b003c4c8dcd98017968ebb163b39a183"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\workflow\\graph_executor.py": {
+    "mtime": 1781942404.029801,
+    "ast_hash": "c79f176e8a690034398f7bf264bcc39f",
+    "semantic_hash": "c79f176e8a690034398f7bf264bcc39f"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\workflow\\graph_types.py": {
+    "mtime": 1781942273.5123062,
+    "ast_hash": "ab14136cd46f01ab71d6e0a0090c737c",
+    "semantic_hash": "ab14136cd46f01ab71d6e0a0090c737c"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\workflow\\graph_validator.py": {
+    "mtime": 1781976474.9233634,
+    "ast_hash": "05161def6463d7641be1851c97812141",
+    "semantic_hash": "05161def6463d7641be1851c97812141"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\workflow\\models.py": {
+    "mtime": 1781857675.0341299,
+    "ast_hash": "41e9292cb62903ddab7e71d799ef73a4",
+    "semantic_hash": "41e9292cb62903ddab7e71d799ef73a4"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\workflow\\node_registry.py": {
+    "mtime": 1781977523.8452642,
+    "ast_hash": "e915bd03faf461315021131bbf59142d",
+    "semantic_hash": "e915bd03faf461315021131bbf59142d"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\workflow\\repository.py": {
+    "mtime": 1781857675.0351295,
+    "ast_hash": "8c7b53b02188e53986e036e8d12d6b22",
+    "semantic_hash": "8c7b53b02188e53986e036e8d12d6b22"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\workflow\\router.py": {
+    "mtime": 1781857675.0351295,
+    "ast_hash": "b20eea41f03b923d42962c0a744094c2",
+    "semantic_hash": "b20eea41f03b923d42962c0a744094c2"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\app\\modules\\workflow\\schemas.py": {
+    "mtime": 1781857675.0361285,
+    "ast_hash": "9f40abf3cdb01d768a796db1004c7d26",
+    "semantic_hash": "9f40abf3cdb01d768a796db1004c7d26"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\pyproject.toml": {
+    "mtime": 1781857675.0361285,
+    "ast_hash": "ed82c9b19247070aa1eca91e75153dd9",
+    "semantic_hash": "ed82c9b19247070aa1eca91e75153dd9"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\conftest.py": {
+    "mtime": 1781190735.2723675,
+    "ast_hash": "a1944454fede63d931ab9c97f0b33ce3",
+    "semantic_hash": "a1944454fede63d931ab9c97f0b33ce3"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_agent_repository.py": {
+    "mtime": 1781860358.28013,
+    "ast_hash": "3cfb9f9c1b7dd86ce6f03a1005c89098",
+    "semantic_hash": "3cfb9f9c1b7dd86ce6f03a1005c89098"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_agent_routes.py": {
+    "mtime": 1781857675.037134,
+    "ast_hash": "2adcf9be27ffc8e01ef06a228d380d45",
+    "semantic_hash": "2adcf9be27ffc8e01ef06a228d380d45"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_agent_run_model_flow.py": {
+    "mtime": 1781432792.8007598,
+    "ast_hash": "1368da117ba9668489d46697e9cbd6c0",
+    "semantic_hash": "1368da117ba9668489d46697e9cbd6c0"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_agent_run_routes.py": {
+    "mtime": 1781976911.0773811,
+    "ast_hash": "3ade4962757edd74aa7eb26851e11b5e",
+    "semantic_hash": "3ade4962757edd74aa7eb26851e11b5e"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_database_models.py": {
+    "mtime": 1781857675.0381298,
+    "ast_hash": "fdf899223dae3d18c2acf7c58bb25dfd",
+    "semantic_hash": "fdf899223dae3d18c2acf7c58bb25dfd"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_evaluation_repository.py": {
+    "mtime": 1781190735.2744095,
+    "ast_hash": "feefd0768d74075f83a4f995ca76dfae",
+    "semantic_hash": "feefd0768d74075f83a4f995ca76dfae"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_evaluation_routes.py": {
+    "mtime": 1781190735.2744095,
+    "ast_hash": "1f4cfcc82811cee98f61bf95de2f9192",
+    "semantic_hash": "1f4cfcc82811cee98f61bf95de2f9192"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_frontend_contract.py": {
+    "mtime": 1781190735.2754083,
+    "ast_hash": "8833772b4e2cf36c19fb1a8b4b3cb3da",
+    "semantic_hash": "8833772b4e2cf36c19fb1a8b4b3cb3da"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_health.py": {
+    "mtime": 1781190735.2754083,
+    "ast_hash": "2d57701791cc6f52413200b9ce40fe90",
+    "semantic_hash": "2d57701791cc6f52413200b9ce40fe90"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_knowledge_repository.py": {
+    "mtime": 1781190735.2764096,
+    "ast_hash": "e1c928281f5f41adea8ab72e568940dc",
+    "semantic_hash": "e1c928281f5f41adea8ab72e568940dc"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_knowledge_routes.py": {
+    "mtime": 1781190735.2769887,
+    "ast_hash": "f9ab4d581a6a33b0f819158fb36c9d0e",
+    "semantic_hash": "f9ab4d581a6a33b0f819158fb36c9d0e"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_model_provider_routes.py": {
+    "mtime": 1781452200.8234155,
+    "ast_hash": "c7d69a7c6ea16feab60e43129cafd39c",
+    "semantic_hash": "c7d69a7c6ea16feab60e43129cafd39c"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_model_provider_streaming.py": {
+    "mtime": 1781977177.6962914,
+    "ast_hash": "d1a674f9b273c22d5b7b324720cabd92",
+    "semantic_hash": "d1a674f9b273c22d5b7b324720cabd92"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_p0_resource_contract.py": {
+    "mtime": 1781190735.2775242,
+    "ast_hash": "2892c6fa90f4c686018680f4432f529f",
+    "semantic_hash": "2892c6fa90f4c686018680f4432f529f"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_p0_routes.py": {
+    "mtime": 1781190735.2780395,
+    "ast_hash": "40be12540655f01b95ab4424e7deede6",
+    "semantic_hash": "40be12540655f01b95ab4424e7deede6"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_release_gate_aggregation.py": {
+    "mtime": 1781190735.2791297,
+    "ast_hash": "4b7a56873ab7bb49d3565802afdc4020",
+    "semantic_hash": "4b7a56873ab7bb49d3565802afdc4020"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_release_gate_service.py": {
+    "mtime": 1781190735.2796612,
+    "ast_hash": "72296c3220754db1294d337b52b1930a",
+    "semantic_hash": "72296c3220754db1294d337b52b1930a"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_tool_repository.py": {
+    "mtime": 1781190735.280718,
+    "ast_hash": "c992d2ccb6d90af7e48bb5b1d892165f",
+    "semantic_hash": "c992d2ccb6d90af7e48bb5b1d892165f"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_tool_routes.py": {
+    "mtime": 1781190735.2812395,
+    "ast_hash": "ff93122ce6019ded72cda44b5b8c22ed",
+    "semantic_hash": "ff93122ce6019ded72cda44b5b8c22ed"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_trace_repository.py": {
+    "mtime": 1781190735.2817707,
+    "ast_hash": "7af41afcaeeeab50eedfd9964dc0604b",
+    "semantic_hash": "7af41afcaeeeab50eedfd9964dc0604b"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_workflow_graph_execution.py": {
+    "mtime": 1781857675.0391293,
+    "ast_hash": "3a5055e4ca6fd94416dd8284c489c4b5",
+    "semantic_hash": "3a5055e4ca6fd94416dd8284c489c4b5"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_workflow_graph_validator.py": {
+    "mtime": 1781976456.4214556,
+    "ast_hash": "dcaa4e0dff361b83106362746f154409",
+    "semantic_hash": "dcaa4e0dff361b83106362746f154409"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_workflow_node_registry.py": {
+    "mtime": 1781977489.6799507,
+    "ast_hash": "bd4bbc47bc6d212fa1e59bbaf8442a39",
+    "semantic_hash": "bd4bbc47bc6d212fa1e59bbaf8442a39"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_workflow_repository.py": {
+    "mtime": 1781857675.0401287,
+    "ast_hash": "16009a06aaa7a029853416ce67f40143",
+    "semantic_hash": "16009a06aaa7a029853416ce67f40143"
+  },
+  "G:\\AI\\AI-Agent\\apps\\api\\tests\\test_workflow_routes.py": {
+    "mtime": 1781857675.0411286,
+    "ast_hash": "70442983f6b9a21049f74374eb081641",
+    "semantic_hash": "70442983f6b9a21049f74374eb081641"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\e2e\\navigation.spec.ts": {
+    "mtime": 1781443474.8236156,
+    "ast_hash": "56b10e38e2eb1b3dd905f40d9966af2d",
+    "semantic_hash": "56b10e38e2eb1b3dd905f40d9966af2d"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\e2e\\responsive.spec.ts": {
+    "mtime": 1781857675.0411286,
+    "ast_hash": "a6ab3bbf4586000aa6d123e114470e36",
+    "semantic_hash": "a6ab3bbf4586000aa6d123e114470e36"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\package.json": {
+    "mtime": 1781857675.042129,
+    "ast_hash": "1d564ffa5e50cc915c125b24abb5a57b",
+    "semantic_hash": "1d564ffa5e50cc915c125b24abb5a57b"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\playwright-real-api\\agent-create.pw.ts": {
+    "mtime": 1781190735.2872615,
+    "ast_hash": "5fd9dca98a0fba3756628952939366e2",
+    "semantic_hash": "5fd9dca98a0fba3756628952939366e2"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\playwright.config.ts": {
+    "mtime": 1781190735.2877915,
+    "ast_hash": "6e429d5441d4cf4e30956c9c23d1346c",
+    "semantic_hash": "6e429d5441d4cf4e30956c9c23d1346c"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\playwright.real-api.config.ts": {
+    "mtime": 1781190735.2888243,
+    "ast_hash": "af20811e3dc17decd67613c79c243bea",
+    "semantic_hash": "af20811e3dc17decd67613c79c243bea"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\public\\mockServiceWorker.js": {
+    "mtime": 1781190735.289871,
+    "ast_hash": "b0ea7582c3ad8dbfdcb433b92df7d06d",
+    "semantic_hash": "b0ea7582c3ad8dbfdcb433b92df7d06d"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\app\\App.test.tsx": {
+    "mtime": 1781857675.042129,
+    "ast_hash": "d3692214afcb7fc15f3818015ae7c0cf",
+    "semantic_hash": "d3692214afcb7fc15f3818015ae7c0cf"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\app\\App.tsx": {
+    "mtime": 1781857675.0431995,
+    "ast_hash": "34abae0e5ccfa6448e56d12766f14a53",
+    "semantic_hash": "34abae0e5ccfa6448e56d12766f14a53"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\app\\providers.tsx": {
+    "mtime": 1781190735.292071,
+    "ast_hash": "7fab927c4c70e288dcfddecc83bf33d5",
+    "semantic_hash": "7fab927c4c70e288dcfddecc83bf33d5"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\assets\\brand.ts": {
+    "mtime": 1781433509.8934925,
+    "ast_hash": "2f124affa66546a8adc2c37c1fbe908f",
+    "semantic_hash": "2f124affa66546a8adc2c37c1fbe908f"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\components\\layout\\AppShell.test.tsx": {
+    "mtime": 1781193603.33044,
+    "ast_hash": "6611bbbf48e5a5a171ebf56b752d83f0",
+    "semantic_hash": "6611bbbf48e5a5a171ebf56b752d83f0"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\components\\layout\\AppShell.tsx": {
+    "mtime": 1781193220.232028,
+    "ast_hash": "67f2b1d714385a96b05613cb9a0d456b",
+    "semantic_hash": "67f2b1d714385a96b05613cb9a0d456b"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\components\\layout\\PageHeader.tsx": {
+    "mtime": 1781857675.0442495,
+    "ast_hash": "a9b51db32fe5bb360dda6d57491cb49a",
+    "semantic_hash": "a9b51db32fe5bb360dda6d57491cb49a"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\components\\layout\\SidebarNav.tsx": {
+    "mtime": 1781857675.0442495,
+    "ast_hash": "05baa3bfb7561a730b6e66706d866ad7",
+    "semantic_hash": "05baa3bfb7561a730b6e66706d866ad7"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\agents\\AgentStudioPage.test.tsx": {
+    "mtime": 1781857675.045246,
+    "ast_hash": "089b8e0625234b138502ca7e4549e7cf",
+    "semantic_hash": "089b8e0625234b138502ca7e4549e7cf"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\agents\\AgentStudioPage.tsx": {
+    "mtime": 1781857675.045246,
+    "ast_hash": "3c467329cab3674446e834c9b5652c9b",
+    "semantic_hash": "3c467329cab3674446e834c9b5652c9b"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\agents\\streamAgentRun.ts": {
+    "mtime": 1781977523.8422637,
+    "ast_hash": "39d809b7b351d3085bd4f66238a55c6b",
+    "semantic_hash": "39d809b7b351d3085bd4f66238a55c6b"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\agents\\useAgents.ts": {
+    "mtime": 1781190735.2986152,
+    "ast_hash": "1de34a0fadf8ea0350eb24d67a4da483",
+    "semantic_hash": "1de34a0fadf8ea0350eb24d67a4da483"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\agents\\useCreateAgent.test.tsx": {
+    "mtime": 1781190735.2986152,
+    "ast_hash": "312b937e94b7eb2a7c19aa8b40b81f6a",
+    "semantic_hash": "312b937e94b7eb2a7c19aa8b40b81f6a"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\agents\\useCreateAgent.ts": {
+    "mtime": 1781857675.0462458,
+    "ast_hash": "f38e18550a26fb681d17d0a8e5305498",
+    "semantic_hash": "f38e18550a26fb681d17d0a8e5305498"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\agents\\useDeleteAgent.ts": {
+    "mtime": 1781857675.0462458,
+    "ast_hash": "3c5d392cdac6931e4fcbe683202bd7f1",
+    "semantic_hash": "3c5d392cdac6931e4fcbe683202bd7f1"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\agents\\useSimulateAgentRun.test.tsx": {
+    "mtime": 1781432792.8077607,
+    "ast_hash": "13c9618e3fabd2bb4f2b58e5369de8d6",
+    "semantic_hash": "13c9618e3fabd2bb4f2b58e5369de8d6"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\agents\\useSimulateAgentRun.ts": {
+    "mtime": 1781432792.8087614,
+    "ast_hash": "37f79226704be610d99138d6b7f232f1",
+    "semantic_hash": "37f79226704be610d99138d6b7f232f1"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\agents\\useUpdateAgent.ts": {
+    "mtime": 1781857675.0472453,
+    "ast_hash": "da205c8fc80f9710bc07503a79bb0458",
+    "semantic_hash": "da205c8fc80f9710bc07503a79bb0458"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\dashboard\\DashboardPage.tsx": {
+    "mtime": 1781857675.0472453,
+    "ast_hash": "a32f5945bb67fe3a3bad632159cc856b",
+    "semantic_hash": "a32f5945bb67fe3a3bad632159cc856b"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\knowledge\\KnowledgePage.tsx": {
+    "mtime": 1781193508.094017,
+    "ast_hash": "355d479d3b068b1ffcb8aa722ac2971e",
+    "semantic_hash": "355d479d3b068b1ffcb8aa722ac2971e"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\knowledge\\useKnowledgeBases.ts": {
+    "mtime": 1781190735.3036091,
+    "ast_hash": "6ca3c83fc76431c2146a357fc56b366d",
+    "semantic_hash": "6ca3c83fc76431c2146a357fc56b366d"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\marketplace\\MarketplacePage.tsx": {
+    "mtime": 1781193542.6921282,
+    "ast_hash": "09236a3d77b335aeda60e6d38807e478",
+    "semantic_hash": "09236a3d77b335aeda60e6d38807e478"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\p0-real-api-pages.test.tsx": {
+    "mtime": 1781193806.5429769,
+    "ast_hash": "fe127748af9b35d8645e056c4a15c8dd",
+    "semantic_hash": "fe127748af9b35d8645e056c4a15c8dd"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\releases\\ReleasePage.tsx": {
+    "mtime": 1781193542.6910892,
+    "ast_hash": "f999c7abc04019935479c25f17379652",
+    "semantic_hash": "f999c7abc04019935479c25f17379652"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\releases\\useReleaseGates.test.tsx": {
+    "mtime": 1781190735.307608,
+    "ast_hash": "91421944a97fa5d53a683c41f95ae84e",
+    "semantic_hash": "91421944a97fa5d53a683c41f95ae84e"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\releases\\useReleaseGates.ts": {
+    "mtime": 1781190735.3086088,
+    "ast_hash": "e3d961957a89216ae5c92a13e43502f6",
+    "semantic_hash": "e3d961957a89216ae5c92a13e43502f6"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\runs\\RunsPage.tsx": {
+    "mtime": 1781193778.9102676,
+    "ast_hash": "7c582eb36e8cf9aa7e69c22e530fb2bd",
+    "semantic_hash": "7c582eb36e8cf9aa7e69c22e530fb2bd"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\runs\\useRunTrace.ts": {
+    "mtime": 1781190735.3086088,
+    "ast_hash": "6d42736fb3477f8ca81eebc4703b44a1",
+    "semantic_hash": "6d42736fb3477f8ca81eebc4703b44a1"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\shared\\ViewBlocks.tsx": {
+    "mtime": 1781443491.665785,
+    "ast_hash": "4afe3a05cad11a4ac0b6e85fc870ddfd",
+    "semantic_hash": "4afe3a05cad11a4ac0b6e85fc870ddfd"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\tools\\ToolsPage.modelProviders.test.tsx": {
+    "mtime": 1781452222.5746558,
+    "ast_hash": "3c28bc5a50974efde6203fc88ae6e941",
+    "semantic_hash": "3c28bc5a50974efde6203fc88ae6e941"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\tools\\ToolsPage.tsx": {
+    "mtime": 1781452647.683128,
+    "ast_hash": "6d3fb137862a278b05171f96d20d6e59",
+    "semantic_hash": "6d3fb137862a278b05171f96d20d6e59"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\tools\\useCreateModelProvider.ts": {
+    "mtime": 1781432792.8107605,
+    "ast_hash": "dd82c34a1808465bbe9b80fae4174a98",
+    "semantic_hash": "dd82c34a1808465bbe9b80fae4174a98"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\tools\\useCreateTool.ts": {
+    "mtime": 1781447398.7550654,
+    "ast_hash": "370371323df725e754bf3a2f14b07c94",
+    "semantic_hash": "370371323df725e754bf3a2f14b07c94"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\tools\\useModelProviders.ts": {
+    "mtime": 1781432792.8107605,
+    "ast_hash": "0da0d64dc717be9fd0fa166d41849dcb",
+    "semantic_hash": "0da0d64dc717be9fd0fa166d41849dcb"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\tools\\useTestModelProvider.ts": {
+    "mtime": 1781452150.2113457,
+    "ast_hash": "ce16c12abcd94bb4f0818f73b5571b98",
+    "semantic_hash": "ce16c12abcd94bb4f0818f73b5571b98"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\tools\\useTools.ts": {
+    "mtime": 1781190735.311609,
+    "ast_hash": "56c544d6136594bc0a26b413e14342f2",
+    "semantic_hash": "56c544d6136594bc0a26b413e14342f2"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\tools\\useUpdateModelProvider.ts": {
+    "mtime": 1781450268.0590544,
+    "ast_hash": "1b8c6ae58b905c11e77574e328a29b17",
+    "semantic_hash": "1b8c6ae58b905c11e77574e328a29b17"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\workflows\\WorkflowPage.test.tsx": {
+    "mtime": 1781977436.3247879,
+    "ast_hash": "fe80a92833112f96344e3dbf50de8bf6",
+    "semantic_hash": "fe80a92833112f96344e3dbf50de8bf6"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\workflows\\WorkflowPage.tsx": {
+    "mtime": 1781977523.8432639,
+    "ast_hash": "0c2023c5842b80007e1a3787bc8f49e4",
+    "semantic_hash": "0c2023c5842b80007e1a3787bc8f49e4"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\workflows\\useCanvasConfig.ts": {
+    "mtime": 1781857675.0502486,
+    "ast_hash": "5b9fdcc7288f7c28840d8b3f9f8d4296",
+    "semantic_hash": "5b9fdcc7288f7c28840d8b3f9f8d4296"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\workflows\\useUpdateWorkflow.ts": {
+    "mtime": 1781857675.0502486,
+    "ast_hash": "ab78ccaec00e6171bc5fa69a46918c31",
+    "semantic_hash": "ab78ccaec00e6171bc5fa69a46918c31"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\workflows\\useWorkflows.ts": {
+    "mtime": 1781190735.3126094,
+    "ast_hash": "b51f3a24ddd53cf54401eb1579bc3905",
+    "semantic_hash": "b51f3a24ddd53cf54401eb1579bc3905"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\workflows\\workflowVariables.test.ts": {
+    "mtime": 1781976445.370085,
+    "ast_hash": "77900f789f4da6a502c7c4319f49dc14",
+    "semantic_hash": "77900f789f4da6a502c7c4319f49dc14"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\features\\workflows\\workflowVariables.ts": {
+    "mtime": 1781976474.9228423,
+    "ast_hash": "6e169982acc4263c757f058a9dd4d21a",
+    "semantic_hash": "6e169982acc4263c757f058a9dd4d21a"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\lib\\api\\client.test.ts": {
+    "mtime": 1781190735.3136091,
+    "ast_hash": "3796adcbce7725cc3c0b5cafd100fb55",
+    "semantic_hash": "3796adcbce7725cc3c0b5cafd100fb55"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\lib\\api\\client.ts": {
+    "mtime": 1781857675.0522456,
+    "ast_hash": "423279bcce94f998d3f7cff1b58d74d1",
+    "semantic_hash": "423279bcce94f998d3f7cff1b58d74d1"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\lib\\mock\\browser.ts": {
+    "mtime": 1781190735.315608,
+    "ast_hash": "228540e38861b4cbdfc7d4df68234e80",
+    "semantic_hash": "228540e38861b4cbdfc7d4df68234e80"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\lib\\mock\\fixtures.test.ts": {
+    "mtime": 1781857675.0532465,
+    "ast_hash": "5f0250bcd990ba6b4e8eb554f6a57dfd",
+    "semantic_hash": "5f0250bcd990ba6b4e8eb554f6a57dfd"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\lib\\mock\\fixtures.ts": {
+    "mtime": 1781857675.0532465,
+    "ast_hash": "02689401a10108331edcbe9708e563e1",
+    "semantic_hash": "02689401a10108331edcbe9708e563e1"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\lib\\mock\\handlers.test.ts": {
+    "mtime": 1781857675.0542452,
+    "ast_hash": "f1368e31cf28f8a4267b8dfedf4b36af",
+    "semantic_hash": "f1368e31cf28f8a4267b8dfedf4b36af"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\lib\\mock\\handlers.ts": {
+    "mtime": 1781857675.0542452,
+    "ast_hash": "74d99d1783a202457c07ac6f351cb9d2",
+    "semantic_hash": "74d99d1783a202457c07ac6f351cb9d2"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\lib\\motion\\useViewTransition.ts": {
+    "mtime": 1781190735.317608,
+    "ast_hash": "e721d55b1d7be3fbb27e2ee8153d4d33",
+    "semantic_hash": "e721d55b1d7be3fbb27e2ee8153d4d33"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\main.tsx": {
+    "mtime": 1781433148.8008268,
+    "ast_hash": "9087a4fbd9156b8781b63df61fcef9c7",
+    "semantic_hash": "9087a4fbd9156b8781b63df61fcef9c7"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\test\\jest-dom.d.ts": {
+    "mtime": 1781857675.056249,
+    "ast_hash": "49301da83ee1a627ffa8d7a354d6b537",
+    "semantic_hash": "49301da83ee1a627ffa8d7a354d6b537"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\test\\setup.ts": {
+    "mtime": 1781857675.056249,
+    "ast_hash": "eb40c1258c3aa26c166d57b2c1ff25d6",
+    "semantic_hash": "eb40c1258c3aa26c166d57b2c1ff25d6"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\types\\domain.ts": {
+    "mtime": 1781857675.0572467,
+    "ast_hash": "446100c1997542f6956ad4621aefda04",
+    "semantic_hash": "446100c1997542f6956ad4621aefda04"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\vite-env.d.ts": {
+    "mtime": 1781857675.0572467,
+    "ast_hash": "9beed930d3daa724f83137d361427394",
+    "semantic_hash": "9beed930d3daa724f83137d361427394"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\tsconfig.json": {
+    "mtime": 1781190735.3240047,
+    "ast_hash": "75e3c8c8dbbe6579a177dd21fd137fe7",
+    "semantic_hash": "75e3c8c8dbbe6579a177dd21fd137fe7"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\tsconfig.node.json": {
+    "mtime": 1781190735.3240047,
+    "ast_hash": "d9d2a5ced8936bb7f3ea6ad3ee5ad86d",
+    "semantic_hash": "d9d2a5ced8936bb7f3ea6ad3ee5ad86d"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\vite.config.ts": {
+    "mtime": 1781190735.325001,
+    "ast_hash": "44a580cd42d64654e399fa1c78ba7ed8",
+    "semantic_hash": "44a580cd42d64654e399fa1c78ba7ed8"
+  },
+  "G:\\AI\\AI-Agent\\package.json": {
+    "mtime": 1781190735.3307352,
+    "ast_hash": "4ed7df0c614cb72f980ec090d0e8c4f5",
+    "semantic_hash": "4ed7df0c614cb72f980ec090d0e8c4f5"
+  },
+  "G:\\AI\\AI-Agent\\scripts\\test-dev-scripts.ps1": {
+    "mtime": 1781858552.079482,
+    "ast_hash": "c516b091f29d88095363057018c75bea",
+    "semantic_hash": "c516b091f29d88095363057018c75bea"
+  },
+  "G:\\AI\\AI-Agent\\.github\\ISSUE_TEMPLATE\\bug_report.md": {
+    "mtime": 1781019065.0982165,
+    "ast_hash": "3f4b839d0b02ce9dd47478bd6d21fee3",
+    "semantic_hash": "3f4b839d0b02ce9dd47478bd6d21fee3"
+  },
+  "G:\\AI\\AI-Agent\\.github\\ISSUE_TEMPLATE\\design_task.md": {
+    "mtime": 1781019065.099218,
+    "ast_hash": "febe047cf8429005f3d2978f8ad57749",
+    "semantic_hash": "febe047cf8429005f3d2978f8ad57749"
+  },
+  "G:\\AI\\AI-Agent\\.github\\ISSUE_TEMPLATE\\feature_request.md": {
+    "mtime": 1781019065.097218,
+    "ast_hash": "87b3a3f13e7404703cabcd6ae7079f2d",
+    "semantic_hash": "87b3a3f13e7404703cabcd6ae7079f2d"
+  },
+  "G:\\AI\\AI-Agent\\.github\\pull_request_template.md": {
+    "mtime": 1781019065.0962162,
+    "ast_hash": "7600cce62462cd01ebd2d51b1304f06e",
+    "semantic_hash": "7600cce62462cd01ebd2d51b1304f06e"
+  },
+  "G:\\AI\\AI-Agent\\.github\\workflows\\ci.yml": {
+    "mtime": 1781019065.1002176,
+    "ast_hash": "b4ff718b2a00a26835e29163ccd7b31b",
+    "semantic_hash": "b4ff718b2a00a26835e29163ccd7b31b"
+  },
+  "G:\\AI\\AI-Agent\\README.md": {
+    "mtime": 1781858254.631604,
+    "ast_hash": "5a8c7fdf6217a810e1af71ad5f71324e",
+    "semantic_hash": "5a8c7fdf6217a810e1af71ad5f71324e"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\index.html": {
+    "mtime": 1781190735.2855928,
+    "ast_hash": "e8d92df02edb5e1cdedf853b368ac784",
+    "semantic_hash": "e8d92df02edb5e1cdedf853b368ac784"
+  },
+  "G:\\AI\\AI-Agent\\docs\\architecture\\development-conventions.md": {
+    "mtime": 1781190735.325378,
+    "ast_hash": "b48d9dd97dd483e72a2bd336825ee750",
+    "semantic_hash": "b48d9dd97dd483e72a2bd336825ee750"
+  },
+  "G:\\AI\\AI-Agent\\docs\\architecture\\domain-model.md": {
+    "mtime": 1781022827.5090222,
+    "ast_hash": "707f83df4b45a8c61a966e8816ca7e76",
+    "semantic_hash": "707f83df4b45a8c61a966e8816ca7e76"
+  },
+  "G:\\AI\\AI-Agent\\docs\\architecture\\frontend-backend-overall-design.md": {
+    "mtime": 1781190735.3258963,
+    "ast_hash": "c8d87335eec19964c3bb1c0e74f2fe52",
+    "semantic_hash": "c8d87335eec19964c3bb1c0e74f2fe52"
+  },
+  "G:\\AI\\AI-Agent\\docs\\architecture\\github-setup.md": {
+    "mtime": 1781019065.095219,
+    "ast_hash": "bac63b337ae204016a7ec87ec40604e9",
+    "semantic_hash": "bac63b337ae204016a7ec87ec40604e9"
+  },
+  "G:\\AI\\AI-Agent\\docs\\architecture\\information-architecture.md": {
+    "mtime": 1781022827.512022,
+    "ast_hash": "99b83e95634d8a3e1eaf1308bdb66857",
+    "semantic_hash": "99b83e95634d8a3e1eaf1308bdb66857"
+  },
+  "G:\\AI\\AI-Agent\\docs\\architecture\\mvp-runtime-runbook.md": {
+    "mtime": 1781190735.3272233,
+    "ast_hash": "8c8d16a1d730660571b1b2faa405db43",
+    "semantic_hash": "8c8d16a1d730660571b1b2faa405db43"
+  },
+  "G:\\AI\\AI-Agent\\docs\\design\\frontend-pages-inventory.md": {
+    "mtime": 1781193678.750086,
+    "ast_hash": "a6d282897789a01147a0cf2c89bb8c1e",
+    "semantic_hash": "a6d282897789a01147a0cf2c89bb8c1e"
+  },
+  "G:\\AI\\AI-Agent\\docs\\design\\frontend-ui-engineering-plan.md": {
+    "mtime": 1781193678.751124,
+    "ast_hash": "6b6be56272172d7fe944c521a8d1dd5e",
+    "semantic_hash": "6b6be56272172d7fe944c521a8d1dd5e"
+  },
+  "G:\\AI\\AI-Agent\\docs\\design\\ui-style-guide.md": {
+    "mtime": 1781193678.7484891,
+    "ast_hash": "1a54ee15899f5997b9ade35a5d377c90",
+    "semantic_hash": "1a54ee15899f5997b9ade35a5d377c90"
+  },
+  "G:\\AI\\AI-Agent\\docs\\prd\\feature-breakdown.md": {
+    "mtime": 1781022827.5130239,
+    "ast_hash": "418999e8afeff8f9bdef8e7e8e50494c",
+    "semantic_hash": "418999e8afeff8f9bdef8e7e8e50494c"
+  },
+  "G:\\AI\\AI-Agent\\docs\\prd\\mvp-requirements.md": {
+    "mtime": 1781022827.5160224,
+    "ast_hash": "f50871d7e22431d4dd2677bec840f022",
+    "semantic_hash": "f50871d7e22431d4dd2677bec840f022"
+  },
+  "G:\\AI\\AI-Agent\\docs\\prd\\release-plan.md": {
+    "mtime": 1781022827.5170217,
+    "ast_hash": "5d151d3b3d970d24f634b762f11f8bba",
+    "semantic_hash": "5d151d3b3d970d24f634b762f11f8bba"
+  },
+  "G:\\AI\\AI-Agent\\docs\\prd\\user-stories.md": {
+    "mtime": 1781022827.5170217,
+    "ast_hash": "49fa4532156d5f3afe8bb9eb0c8ded1d",
+    "semantic_hash": "49fa4532156d5f3afe8bb9eb0c8ded1d"
+  },
+  "G:\\AI\\AI-Agent\\docs\\specs\\2026-06-17-workflow-canvas-design-direction.md": {
+    "mtime": 1781857675.0582452,
+    "ast_hash": "f015fba7ffd2660d7902c328e0c02e58",
+    "semantic_hash": "f015fba7ffd2660d7902c328e0c02e58"
+  },
+  "G:\\AI\\AI-Agent\\docs\\superpowers\\plans\\2026-06-10-mvp-implementation-plan.md": {
+    "mtime": 1781190735.3297362,
+    "ast_hash": "913e8220726d6e3f532f98193f62ed03",
+    "semantic_hash": "913e8220726d6e3f532f98193f62ed03"
+  },
+  "G:\\AI\\AI-Agent\\docs\\superpowers\\plans\\2026-06-15-workflow-react-flow-editor.md": {
+    "mtime": 1781857675.059245,
+    "ast_hash": "6acbf979632517e7b41d13f9844226a0",
+    "semantic_hash": "6acbf979632517e7b41d13f9844226a0"
+  },
+  "G:\\AI\\AI-Agent\\docs\\superpowers\\plans\\2026-06-18-langgraph-workflow-output-node.md": {
+    "mtime": 1781857675.059245,
+    "ast_hash": "f71a88dc89310503bfcbd23b21a4b6c0",
+    "semantic_hash": "f71a88dc89310503bfcbd23b21a4b6c0"
+  },
+  "G:\\AI\\AI-Agent\\docs\\superpowers\\plans\\2026-06-21-structured-workflow-output-node.md": {
+    "mtime": 1781975924.600065,
+    "ast_hash": "18f83795216a7c32e5089e97229e56d7",
+    "semantic_hash": "18f83795216a7c32e5089e97229e56d7"
+  },
+  "G:\\AI\\AI-Agent\\docs\\superpowers\\specs\\2026-06-12-agent-page-real-function-design.md": {
+    "mtime": 1781857675.060247,
+    "ast_hash": "4cf66d14dd3e8df9686951aa30a2e3a4",
+    "semantic_hash": "4cf66d14dd3e8df9686951aa30a2e3a4"
+  },
+  "G:\\AI\\AI-Agent\\docs\\superpowers\\specs\\2026-06-15-workflow-react-flow-editor-design.md": {
+    "mtime": 1781857675.060247,
+    "ast_hash": "8dc74b4392ece72c0fae3bee764c618a",
+    "semantic_hash": "8dc74b4392ece72c0fae3bee764c618a"
+  },
+  "G:\\AI\\AI-Agent\\docs\\superpowers\\specs\\2026-06-18-langgraph-workflow-output-node-design.md": {
+    "mtime": 1781857675.061245,
+    "ast_hash": "d223c115864d5b9883fc618df1515a5c",
+    "semantic_hash": "d223c115864d5b9883fc618df1515a5c"
+  },
+  "G:\\AI\\AI-Agent\\docs\\superpowers\\specs\\2026-06-19-workflow-inspector-actions-design.md": {
+    "mtime": 1781859516.4254863,
+    "ast_hash": "5acf94d24d520c867b1b10abbcf1cccd",
+    "semantic_hash": "5acf94d24d520c867b1b10abbcf1cccd"
+  },
+  "G:\\AI\\AI-Agent\\docs\\superpowers\\specs\\2026-06-20-workflow-chat-preview-design.md": {
+    "mtime": 1781887858.0219667,
+    "ast_hash": "821882ae11dbe6f20afc5eaa23c71a62",
+    "semantic_hash": "821882ae11dbe6f20afc5eaa23c71a62"
+  },
+  "G:\\AI\\AI-Agent\\docs\\superpowers\\specs\\2026-06-20-workflow-node-interactions-design.md": {
+    "mtime": 1781949931.4833038,
+    "ast_hash": "f7d282e4bb378aa6c26e4c0e646393d0",
+    "semantic_hash": "f7d282e4bb378aa6c26e4c0e646393d0"
+  },
+  "G:\\AI\\AI-Agent\\pnpm-workspace.yaml": {
+    "mtime": 1781190735.333174,
+    "ast_hash": "fbe86e622dffba1d4870169cb5645861",
+    "semantic_hash": "fbe86e622dffba1d4870169cb5645861"
+  },
+  "G:\\AI\\AI-Agent\\apps\\web\\src\\assets\\logo-web.png": {
+    "mtime": 1781433493.0029616,
+    "ast_hash": "d9cf06c02b1c634a30a7a85b5bfef112",
+    "semantic_hash": "d9cf06c02b1c634a30a7a85b5bfef112"
+  },
+  "G:\\AI\\AI-Agent\\others\\logo.png": {
+    "mtime": 1781857675.0702453,
+    "ast_hash": "7c4684dd991f85b30e5faef4bc8fcf44",
+    "semantic_hash": "7c4684dd991f85b30e5faef4bc8fcf44"
+  }
+}
