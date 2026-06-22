@@ -22,6 +22,7 @@ if "%WEB_PORT%"=="5176" (set "WEB_LOG=%LOG_DIR%\web.log") else (set "WEB_LOG=%LO
 set "CONDA_ENV_NAME=%AI_AGENT_CONDA_ENV%"
 if not defined CONDA_ENV_NAME set "CONDA_ENV_NAME=ai-agent-platform"
 set "PYTHON_PATH="
+set "PYTHON_SOURCE=Conda environment %CONDA_ENV_NAME%"
 
 where conda >nul 2>&1
 if errorlevel 1 (
@@ -31,9 +32,14 @@ if errorlevel 1 (
 
 for /f "usebackq delims=" %%I in (`conda run -n "%CONDA_ENV_NAME%" python -c "import sys; print(sys.executable)" 2^>nul`) do set "PYTHON_PATH=%%I"
 if not defined PYTHON_PATH (
-  echo [ERROR] Could not resolve Python from Conda environment: %CONDA_ENV_NAME%
-  echo Create it with: conda create -n %CONDA_ENV_NAME% python=3.11 -y
-  exit /b 1
+  if exist "%API_DIR%\.venv\Scripts\python.exe" (
+    set "PYTHON_PATH=%API_DIR%\.venv\Scripts\python.exe"
+    set "PYTHON_SOURCE=project virtual environment apps\api\.venv"
+  ) else (
+    echo [ERROR] Could not resolve Python from Conda environment: %CONDA_ENV_NAME%
+    echo Create it with: conda create -n %CONDA_ENV_NAME% python=3.11 -y
+    exit /b 1
+  )
 )
 
 if not exist "%PYTHON_PATH%" (
@@ -41,7 +47,7 @@ if not exist "%PYTHON_PATH%" (
   exit /b 1
 )
 
-echo [INFO] Backend Conda environment: %CONDA_ENV_NAME%
+echo [INFO] Backend Python source: %PYTHON_SOURCE%
 echo [INFO] Backend Python: %PYTHON_PATH%
 
 where corepack >nul 2>&1
