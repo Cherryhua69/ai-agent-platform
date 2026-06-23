@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -7,7 +8,10 @@ from app.core.database import Base
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    try:
+        return datetime.now(ZoneInfo("Asia/Shanghai")).replace(tzinfo=None)
+    except ZoneInfoNotFoundError:
+        return datetime.now().replace(tzinfo=None)
 
 
 class RunModel(Base):
@@ -16,6 +20,8 @@ class RunModel(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     agent_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
+    run_category: Mapped[str] = mapped_column(String(32), nullable=False, default="test")
+    failure_reason: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     cost_cny: Mapped[float] = mapped_column(Float, nullable=False)
     final_output: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)

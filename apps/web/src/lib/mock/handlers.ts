@@ -1,9 +1,31 @@
 import { http, HttpResponse } from "msw";
-import type { Agent, ModelProvider, Tool } from "../../types/domain";
-import { agents, knowledgeBases, modelProviders, releaseGates, runTrace, tools, workflows } from "./fixtures";
+import type { Agent, DashboardSummary, ModelProvider, Tool } from "../../types/domain";
+import { agents, knowledgeBases, modelProviders, recentRuns, releaseGates, runTrace, tools, workflows } from "./fixtures";
 
 export const handlers = [
   http.get("/api/agents", () => HttpResponse.json(agents)),
+  http.get("/api/dashboard/summary", () => {
+    const relevantRuns = recentRuns.filter((run) => run.runCategory === "test" || run.runCategory === "production");
+    const successfulRuns = relevantRuns.filter((run) => run.status === "success").length;
+    const summary: DashboardSummary = {
+      runSuccessRate: {
+        value: relevantRuns.length ? Math.round((successfulRuns / relevantRuns.length) * 100) : 0,
+        windowHours: 24,
+        totalRuns: relevantRuns.length,
+        successfulRuns
+      },
+      publishedAgents: 0,
+      pendingAgents: agents
+        .filter((agent) => agent.status !== "published")
+        .map((agent) => ({
+          id: agent.id,
+          name: agent.name,
+          description: agent.scenario,
+          status: "configuring"
+        }))
+    };
+    return HttpResponse.json(summary);
+  }),
   http.post("/api/agents", async ({ request }) => {
     const payload = (await request.json()) as Record<string, unknown>;
     const agentId = `agent_created_${agents.length + 1}`;
@@ -127,13 +149,28 @@ export const handlers = [
     return HttpResponse.json({ status: "success", output: `[${provider.model}] connection ok` });
   }),
   http.get("/api/release-gates", () => HttpResponse.json(releaseGates)),
+  http.get("/api/runs/recent", () => HttpResponse.json(recentRuns)),
   http.post("/api/agents/:agentId/runs", async ({ params, request }) => {
-    const payload = (await request.json()) as { userInput?: string };
+    const payload = (await request.json()) as { userInput?: string; runCategory?: "test" | "production" };
+    const runId = `run_${Date.now().toString(16)}`;
+    const agentId = String(params.agentId);
+    const agentName = agents.find((agent) => agent.id === agentId)?.name ?? agentId;
+    recentRuns.unshift({
+      id: runId,
+      agentId,
+      agentName,
+      runTime: new Date().toISOString(),
+      failureReason: "无",
+      runCategory: payload.runCategory ?? "test",
+      status: "success"
+    });
     return HttpResponse.json(
       {
         ...runTrace,
-        id: "run_created",
-        agentId: String(params.agentId),
+        id: runId,
+        agentId,
+        runCategory: payload.runCategory ?? "test",
+        failureReason: undefined,
         finalOutput: `[local-smoke] ${payload.userInput ?? "Agent request"}`
       },
       { status: 201 }

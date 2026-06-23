@@ -26,7 +26,7 @@ export function App() {
   const views: Record<ViewId, React.ReactNode> = {
     dashboard: <DashboardPage />,
     agents: <AgentStudioPage onConfigureAgent={handleConfigureAgent} />,
-    workflow: <WorkflowPage />,
+    workflow: <WorkflowPage onBackToAgents={() => setActiveView("agents")} />,
     knowledge: <KnowledgePage />,
     tools: <ToolsPage />,
     runs: <RunsPage />,

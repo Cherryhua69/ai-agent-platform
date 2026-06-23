@@ -150,6 +150,8 @@ class NodeRegistry:
                 selected = dict(inputs)
             elif inputs.get("conversationHistory"):
                 selected["conversationHistory"] = inputs["conversationHistory"]
+            if inputs.get("modelProviderId"):
+                selected["modelProviderId"] = inputs["modelProviderId"]
             return {"inputs": selected, "trace_steps": self._trace(node)}
 
         return handler
@@ -171,9 +173,11 @@ class NodeRegistry:
         user_prompt = str(node.config.get("userPrompt", ""))
 
         def handler(state: WorkflowState) -> dict[str, Any]:
-            provider = self._model_providers.get(str(provider_id) if provider_id else None)
+            fallback_provider_id = state.get("inputs", {}).get("modelProviderId")
+            selected_provider_id = provider_id or fallback_provider_id
+            provider = self._model_providers.get(str(selected_provider_id) if selected_provider_id else None)
             if provider is None:
-                raise RuntimeError(f"找不到模型提供商: {provider_id or 'default'}")
+                raise RuntimeError(f"找不到模型提供商: {selected_provider_id or 'default'}")
             contexts: list[str] = []
             if isinstance(context_variables, list):
                 for item in context_variables:

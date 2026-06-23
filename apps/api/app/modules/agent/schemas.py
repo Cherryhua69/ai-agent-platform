@@ -35,3 +35,4 @@ class AgentRunRequest(BaseModel):
     model_provider_id: str | None = Field(default=None, alias="modelProviderId")
     knowledge_base_ids: list[str] = Field(default_factory=list, alias="knowledgeBaseIds")
     conversation_history: list[ConversationMessage] = Field(default_factory=list, alias="conversationHistory", max_length=20)
+    run_category: Literal["test", "production"] | None = Field(default=None, alias="runCategory")

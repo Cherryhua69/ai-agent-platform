@@ -1,3 +1,5 @@
+import json
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -100,6 +102,7 @@ def test_agent_run_creates_queryable_trace_with_final_output():
     assert body["id"].startswith("run_")
     assert body["agentId"] == "agent-after-sale"
     assert body["status"] == "success"
+    assert body["runCategory"] == "test"
     assert "route-smoke" in body["finalOutput"]
     assert body["steps"][0]["title"] == "User input"
     assert body["steps"][-1]["title"] == "LangChain model call"
@@ -177,5 +180,180 @@ def test_agent_run_executes_the_saved_langgraph_workflow():
     assert response.status_code == 201
     body = response.json()
     assert body["status"] == "success"
+    assert body["runCategory"] == "production"
     assert "graph-route" in body["finalOutput"]
     assert [step["title"] for step in body["steps"]] == ["用户输入", "生成回答", "输出"]
+
+
+def test_graph_run_uses_request_model_provider_when_llm_node_has_no_saved_provider():
+    client = TestClient(app)
+    provider = client.post(
+        "/api/model-providers",
+        json={
+            "name": "Canvas selected model",
+            "providerType": "openai-compatible",
+            "baseUrl": "mock://local",
+            "model": "request-selected-model",
+            "apiKey": "sk-local",
+            "isDefault": False,
+        },
+    ).json()
+    agent = client.post("/api/agents", json={"name": "AI对话小助手", "scenario": "测试画布模型选择"}).json()
+    workflow_id = agent["workflowId"]
+    saved = client.put(
+        f"/api/workflows/{workflow_id}",
+        json={
+            "name": "AI对话小助手 工作流",
+            "status": "draft",
+            "toolHealthStatus": "online",
+            "viewport": {"x": 0, "y": 0, "zoom": 1},
+            "nodes": [
+                {
+                    "id": "input",
+                    "type": "trigger",
+                    "name": "用户输入",
+                    "status": "success",
+                    "config": {
+                        "inputFields": [
+                            {
+                                "id": "text_input_1",
+                                "label": "text_input_1",
+                                "variable": "text_input_1",
+                                "kind": "text",
+                                "required": True,
+                            }
+                        ]
+                    },
+                },
+                {
+                    "id": "llm",
+                    "type": "llm",
+                    "name": "LLM 1",
+                    "status": "success",
+                    "config": {},
+                },
+                {
+                    "id": "output",
+                    "type": "expose",
+                    "name": "输出",
+                    "status": "success",
+                    "config": {
+                        "outputVariables": [
+                            {"id": "test", "name": "test", "valueSelector": ["llm", "text"], "valueType": "String"}
+                        ]
+                    },
+                },
+            ],
+            "edges": [
+                {"id": "input-llm", "source": "input", "target": "llm"},
+                {"id": "llm-output", "source": "llm", "target": "output"},
+            ],
+        },
+    )
+    assert saved.status_code == 200
+
+    response = client.post(
+        f"/api/agents/{agent['id']}/runs",
+        json={"userInput": "你是谁", "modelProviderId": provider["id"], "runCategory": "test"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "success"
+    assert body["finalOutput"]
+    assert "request-selected-model" in body["finalOutput"]
+
+
+def test_streamed_graph_test_run_is_visible_in_recent_runs():
+    client = TestClient(app)
+    provider = client.post(
+        "/api/model-providers",
+        json={
+            "name": "Recent stream graph model",
+            "providerType": "openai-compatible",
+            "baseUrl": "mock://local",
+            "model": "recent-stream-model",
+            "apiKey": "sk-local",
+            "isDefault": False,
+        },
+    ).json()
+    agent = client.post("/api/agents", json={"name": "AI 对话小助手", "scenario": "工作流测试运行回显"}).json()
+    workflow_id = agent["workflowId"]
+    saved = client.put(
+        f"/api/workflows/{workflow_id}",
+        json={
+            "name": "AI 对话小助手工作流",
+            "status": "draft",
+            "toolHealthStatus": "online",
+            "viewport": {"x": 0, "y": 0, "zoom": 1},
+            "nodes": [
+                {
+                    "id": "input",
+                    "type": "trigger",
+                    "name": "用户输入",
+                    "status": "success",
+                    "config": {
+                        "inputFields": [
+                            {
+                                "id": "question",
+                                "label": "问题",
+                                "variable": "userinput.question",
+                                "kind": "text",
+                                "required": True,
+                            }
+                        ]
+                    },
+                },
+                {
+                    "id": "llm",
+                    "type": "llm",
+                    "name": "生成回答",
+                    "status": "success",
+                    "config": {
+                        "modelProviderId": provider["id"],
+                        "contextVariables": ["userinput.question"],
+                        "userPrompt": "请回答：{{userinput.question}}",
+                    },
+                },
+                {
+                    "id": "output",
+                    "type": "expose",
+                    "name": "输出",
+                    "status": "success",
+                    "config": {
+                        "outputVariables": [
+                            {"id": "answer", "name": "answer", "valueSelector": ["llm", "text"], "valueType": "String"}
+                        ]
+                    },
+                },
+            ],
+            "edges": [
+                {"id": "input-llm", "source": "input", "target": "llm"},
+                {"id": "llm-output", "source": "llm", "target": "output"},
+            ],
+        },
+    )
+    assert saved.status_code == 200
+
+    with client.stream(
+        "POST",
+        f"/api/agents/{agent['id']}/runs/stream",
+        json={"userInput": "手动测试运行", "modelProviderId": provider["id"], "runCategory": "test"},
+    ) as response:
+        assert response.status_code == 200
+        events = [json.loads(line) for line in response.iter_lines() if line]
+
+    run_id = next(event["runId"] for event in events if event["type"] == "done")
+    recent = client.get("/api/runs/recent")
+
+    assert recent.status_code == 200
+    first_run = recent.json()[0]
+    assert first_run["runTime"]
+    assert {key: value for key, value in first_run.items() if key != "runTime"} == {
+        "id": run_id,
+        "agentId": agent["id"],
+        "agentName": "AI 对话小助手",
+        "failureReason": "无",
+        "runCategory": "test",
+        "status": "success",
+    }

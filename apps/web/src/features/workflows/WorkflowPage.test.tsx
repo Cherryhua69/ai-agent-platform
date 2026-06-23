@@ -3,16 +3,18 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useCanvasConfig } from "./useCanvasConfig";
-import { deleteSelectedEdges, WorkflowPage } from "./WorkflowPage";
+import { createFlowEdges, deleteSelectedEdges, WorkflowPage } from "./WorkflowPage";
 
 function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   });
 
-  return function Wrapper({ children }: { children: ReactNode }) {
+  function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
-  };
+  }
+
+  return { queryClient, Wrapper };
 }
 
 describe("WorkflowPage", () => {
@@ -78,7 +80,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     expect(await screen.findByLabelText("工作流编辑器")).toHaveClass("workflow-editor");
     expect(screen.getByLabelText("工作流画布")).toHaveClass("workflow-canvas");
@@ -155,7 +157,9 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    render(<WorkflowPage />, { wrapper: Wrapper });
 
     expect(await screen.findByRole("heading", { name: "After-sale assistant" })).toBeInTheDocument();
     expect(screen.getByText("Answer refund and exchange questions from policy knowledge")).toBeInTheDocument();
@@ -213,7 +217,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: "添加节点" }));
     for (const label of ["添加节点", "添加注释框", "指针模式", "手模式", "自动整理节点"]) {
@@ -303,7 +307,7 @@ describe("WorkflowPage", () => {
   });
 
   it("places new nodes manually and keeps data flow based on manual left-right connections", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
 
       if (url.endsWith("/api/workflows")) {
@@ -334,11 +338,15 @@ describe("WorkflowPage", () => {
         return { ok: true, json: async () => [] };
       }
 
+      if (init?.method === "PUT" && url.endsWith("/api/workflows/workflow-after-sale")) {
+        return { ok: true, json: async () => ({ id: "workflow-after-sale", agentId: "agent-after-sale", ...JSON.parse(String(init.body)) }) };
+      }
+
       return { ok: false, status: 404, json: async () => ({}) };
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     await screen.findByRole("button", { name: "LLM" });
     expect(document.querySelectorAll(".react-flow__edge")).toHaveLength(0);
@@ -354,6 +362,19 @@ describe("WorkflowPage", () => {
     fireEvent.click(pane as Element, { clientX: 720, clientY: 360 });
     expect(await screen.findByRole("button", { name: "LLM 2" })).toBeInTheDocument();
     expect(document.querySelectorAll(".react-flow__edge")).toHaveLength(0);
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT")).toBe(true));
+    await waitFor(() => {
+      const llmNode = document.querySelector('[data-id^="local-llm-"]') as HTMLElement | null;
+      const transform = llmNode?.getAttribute("style")?.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+      expect(transform).not.toBeNull();
+      const x = Number(transform?.[1]);
+      const y = Number(transform?.[2]);
+      expect(x).toBeGreaterThan(450);
+      expect(x).toBeLessThan(650);
+      expect(y).toBeGreaterThan(240);
+      expect(y).toBeLessThan(340);
+      expect(llmNode?.getAttribute("style")).not.toContain("translate(1120px,220px)");
+    });
   });
 
   it("prepends the default user input node when a workflow has no trigger node", async () => {
@@ -388,7 +409,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     expect(await screen.findByRole("button", { name: "用户输入" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "LLM" })).toBeInTheDocument();
@@ -419,7 +440,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     expect(await screen.findByRole("button", { name: "用户输入" })).toBeInTheDocument();
     expect(document.querySelector('[data-id="node-trigger"]')).toBeInTheDocument();
@@ -460,7 +481,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     expect(await screen.findByRole("button", { name: "用户输入" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Other agent input" })).not.toBeInTheDocument();
@@ -532,7 +553,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     await screen.findByRole("heading", { name: "After-sale Agentflow" });
     fireEvent.click(screen.getByRole("button", { name: "自动整理节点" }));
@@ -589,7 +610,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     await screen.findByRole("button", { name: "LLM" });
     expect(document.querySelector('[data-id="node-trigger"]')?.getAttribute("style")).toContain("translate(37px,91px)");
@@ -634,7 +655,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
     await screen.findByRole("button", { name: "LLM" });
 
     fireEvent.click(screen.getByRole("button", { name: "自动整理节点" }));
@@ -692,7 +713,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
     expect(await screen.findAllByRole("button", { name: "LLM" })).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "自动整理节点" }));
@@ -753,7 +774,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     expect(screen.queryByRole("complementary", { name: "节点配置" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "用户输入" }));
@@ -809,7 +830,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     const canvasActions = screen.getByLabelText("画布运行操作");
     expect(within(canvasActions).getByRole("button", { name: "测试运行" })).toBeInTheDocument();
@@ -900,7 +921,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     const userInputNode = await screen.findByRole("button", { name: "用户输入" });
     expect(within(userInputNode).queryByText("upload_file")).not.toBeInTheDocument();
@@ -979,7 +1000,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     expect(await screen.findByRole("button", { name: "用户输入" })).toBeInTheDocument();
     const userInputNode = document.querySelector('[data-id="node-trigger"]');
@@ -1025,7 +1046,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     expect(await screen.findByRole("button", { name: "用户输入" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "LLM" })).toBeInTheDocument();
@@ -1111,7 +1132,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: "孤立输出" }));
     expect(await screen.findByRole("heading", { name: "孤立输出" })).toBeInTheDocument();
@@ -1134,6 +1155,9 @@ describe("WorkflowPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "添加输出变量" }));
     expect(screen.getByRole("group", { name: "LLM" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "用户输入" })).toBeInTheDocument();
+    expect(screen.getByLabelText("设置变量值")).toHaveClass("workflow-output-selector");
+    expect(screen.queryByRole("button", { name: /上移输出变量/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /下移输出变量/ })).not.toBeInTheDocument();
     expect(screen.getByRole("option", { name: "LLM / text String" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "LLM / reasoning_content String" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "LLM / usage Object" })).toBeInTheDocument();
@@ -1151,8 +1175,8 @@ describe("WorkflowPage", () => {
     const valueSelectors = screen.getAllByLabelText("设置变量值");
     fireEvent.change(valueSelectors[1], { target: { value: "node-llm.usage" } });
     expect(screen.getAllByLabelText("输出变量名")[1]).toHaveValue("usage");
-    fireEvent.click(screen.getByRole("button", { name: "上移输出变量 2" }));
-    expect(screen.getAllByLabelText("输出变量名")[0]).toHaveValue("usage");
+    expect(screen.queryByRole("button", { name: "上移输出变量 2" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "下移输出变量 1" })).not.toBeInTheDocument();
 
     await waitFor(() => expect(screen.getByText("输出节点“孤立输出”输出变量名称不能为空")).toBeInTheDocument());
     expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT")).toBe(false);
@@ -1175,8 +1199,8 @@ describe("WorkflowPage", () => {
           id: "node-output",
           config: expect.objectContaining({
             outputVariables: [
-              expect.objectContaining({ name: "usage", valueSelector: ["node-llm", "usage"], valueType: "Object" }),
-              expect.objectContaining({ name: "text", valueSelector: ["node-llm", "text"], valueType: "String" })
+              expect.objectContaining({ name: "text", valueSelector: ["node-llm", "text"], valueType: "String" }),
+              expect.objectContaining({ name: "usage", valueSelector: ["node-llm", "usage"], valueType: "Object" })
             ]
           })
         })
@@ -1240,7 +1264,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: /Knowledge retrieval/ }));
 
@@ -1344,7 +1368,9 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    const { queryClient, Wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    render(<WorkflowPage />, { wrapper: Wrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: /Configured model/ }));
     await waitFor(() => expect(screen.getByLabelText("模型配置")).toHaveValue("model_provider_local"));
@@ -1380,12 +1406,14 @@ describe("WorkflowPage", () => {
         userInput: "第一轮问题",
         modelProviderId: "model_provider_local",
         knowledgeBaseIds: ["kb-after-sale"],
+        runCategory: "test",
         conversationHistory: []
       }),
       headers: { "Content-Type": "application/json" },
       method: "POST"
     }));
     expect(await within(preview).findByText("第一轮回复")).toBeInTheDocument();
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["recent-runs"] }));
     expect(within(preview).getByText(/第一轮问题/)).toBeInTheDocument();
     expect(within(preview).getByText(/order.txt/)).toBeInTheDocument();
 
@@ -1401,6 +1429,7 @@ describe("WorkflowPage", () => {
       userInput: "第二轮问题",
       modelProviderId: "model_provider_local",
       knowledgeBaseIds: ["kb-after-sale"],
+      runCategory: "test",
       conversationHistory: [
         { role: "user", content: "第一轮问题\n附件：order.txt、one.txt、two.txt" },
         { role: "assistant", content: "第一轮回复" }
@@ -1492,7 +1521,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: "测试运行" }));
     const preview = screen.getByRole("complementary", { name: "测试预览" });
@@ -1501,6 +1530,8 @@ describe("WorkflowPage", () => {
 
     expect(await within(preview).findByText("模型上下文过长，请缩短历史后重试")).toBeInTheDocument();
     expect(within(preview).getByText("运行状态").nextSibling).toHaveTextContent("error");
+    fireEvent.click(screen.getByRole("button", { name: "用户输入" }));
+    expect(screen.queryByText("运行调试失败，请检查模型 API 配置。")).not.toBeInTheDocument();
   });
 
   it("keeps streamed assistant text when a later stream error arrives", async () => {
@@ -1580,7 +1611,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: "测试运行" }));
     const preview = screen.getByRole("complementary", { name: "测试预览" });
@@ -1621,7 +1652,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     const comment = await screen.findByText("原始说明");
     const commentNode = comment.closest(".workflow-comment-node") as HTMLElement;
@@ -1653,6 +1684,12 @@ describe("WorkflowPage", () => {
     expect(deleteSelectedEdges(edges, "Delete").map((edge) => edge.id)).toEqual(["kept"]);
     expect(deleteSelectedEdges(edges, "Backspace").map((edge) => edge.id)).toEqual(["kept"]);
     expect(deleteSelectedEdges(edges, "Enter")).toBe(edges);
+  });
+
+  it("renders workflow connections as lines without arrow markers", () => {
+    const [edge] = createFlowEdges([{ id: "edge-a", source: "node-a", target: "node-b", sourceHandle: "right", targetHandle: "left" }]);
+
+    expect(edge).not.toHaveProperty("markerEnd");
   });
 
   it("hides node success status and allows deleting configurable nodes except the default user input", async () => {
@@ -1691,7 +1728,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     expect(await screen.findByRole("button", { name: "LLM" })).toBeInTheDocument();
     expect(document.querySelector(".workflow-canvas .status-pill")).not.toBeInTheDocument();
@@ -1757,7 +1794,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     await screen.findByRole("button", { name: "LLM" });
     const llmNode = document.querySelector('[data-id="node-llm"]');
@@ -1909,7 +1946,7 @@ describe("WorkflowPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<WorkflowPage />, { wrapper: createWrapper() });
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: "用户输入" }));
     fireEvent.change(screen.getByLabelText("添加描述"), { target: { value: "用户输入节点描述" } });

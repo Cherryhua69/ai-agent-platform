@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -17,3 +17,26 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expi
 
 def init_database() -> None:
     Base.metadata.create_all(bind=engine)
+    _ensure_run_summary_columns()
+
+
+def _ensure_run_summary_columns() -> None:
+    inspector = inspect(engine)
+    if not inspector.has_table("runs"):
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("runs")}
+    statements: list[str] = []
+    if "final_output" not in columns:
+        statements.append("ALTER TABLE runs ADD COLUMN final_output TEXT NULL")
+    if "run_category" not in columns:
+        statements.append("ALTER TABLE runs ADD COLUMN run_category VARCHAR(32) NOT NULL DEFAULT 'test'")
+    if "failure_reason" not in columns:
+        statements.append("ALTER TABLE runs ADD COLUMN failure_reason TEXT NULL")
+
+    if not statements:
+        return
+
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))

@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.modules.agent.router import router as agent_router
+from app.modules.dashboard.router import router as dashboard_router
 from app.modules.evaluation.router import router as evaluation_router
 from app.modules.knowledge.router import router as knowledge_router
 from app.modules.model_provider.router import router as model_provider_router
@@ -34,6 +35,7 @@ app.add_middleware(
 )
 
 app.include_router(agent_router)
+app.include_router(dashboard_router)
 app.include_router(evaluation_router)
 app.include_router(knowledge_router)
 app.include_router(model_provider_router)

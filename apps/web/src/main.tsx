@@ -13,7 +13,7 @@ if (!favicon.parentNode) {
   document.head.appendChild(favicon);
 }
 
-if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCK_API !== "false") {
+if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCK_API === "true") {
   const { worker } = await import("./lib/mock/browser");
   await worker.start({ onUnhandledRequest: "bypass" });
 }

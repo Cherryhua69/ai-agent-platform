@@ -129,4 +129,69 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: "Contract risk check" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "配置：Contract risk check" })).not.toBeInTheDocument();
   });
+  it("从智能体卡片进入画布后可以通过右上角按钮返回智能体卡片页", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/api/agents")) {
+          return {
+            ok: true,
+            json: async () => [
+              {
+                id: "agent-contract-review",
+                name: "Contract review assistant",
+                scenario: "Extract contract clauses and identify risks",
+                owner: "Ning Wang",
+                status: "ready",
+                modelPolicy: "gpt-4.1-mini + strict citation",
+                workflowId: "workflow-contract-review",
+                knowledgeBaseIds: ["kb-contract"],
+                toolIds: ["tool-query-order"]
+              }
+            ]
+          };
+        }
+        if (url.endsWith("/api/workflows")) {
+          return {
+            ok: true,
+            json: async () => [
+              {
+                id: "workflow-contract-review",
+                agentId: "agent-contract-review",
+                name: "Contract review Agentflow",
+                status: "ready",
+                toolHealthStatus: "online",
+                nodes: [{ id: "node-contract", type: "llm", name: "Contract risk check", status: "success" }]
+              }
+            ]
+          };
+        }
+        if (url.endsWith("/api/model-providers")) {
+          return { ok: true, json: async () => [] };
+        }
+        if (url.endsWith("/api/knowledge-bases")) {
+          return { ok: true, json: async () => [] };
+        }
+        return { ok: true, json: async () => [] };
+      })
+    );
+
+    render(
+      <AppProviders>
+        <App />
+      </AppProviders>
+    );
+
+    await user.click(screen.getByRole("button", { name: "智能体" }));
+    await user.click(await screen.findByRole("article", { name: "Contract review assistant" }));
+
+    expect(await screen.findByRole("heading", { name: "Contract review assistant" })).toBeInTheDocument();
+
+    await user.click(await screen.findByRole("button", { name: "返回智能体列表" }));
+
+    expect(await screen.findByRole("article", { name: "Contract review assistant" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("工作流画布")).not.toBeInTheDocument();
+  });
 });

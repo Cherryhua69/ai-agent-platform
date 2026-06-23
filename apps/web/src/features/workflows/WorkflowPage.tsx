@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type PointerEvent } from "react";
-import { Bot, FileInput, FileOutput, Hand, Home, MessageSquarePlus, MousePointer2, Plus, RotateCcw, Sparkles, X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Bot, FileInput, FileOutput, Hand, Home, MessageSquarePlus, MousePointer2, Plus, RotateCcw, Sparkles, X } from "lucide-react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import {
   Background,
   Controls,
   ConnectionLineType,
   Handle,
-  MarkerType,
   MiniMap,
   Position,
   ReactFlow,
@@ -36,6 +38,8 @@ import {
   outputSelectorToValue,
   type OutputVariable
 } from "./workflowVariables";
+
+gsap.registerPlugin(useGSAP);
 
 const nodePositions = [
   { x: 220, y: 220 },
@@ -365,7 +369,19 @@ const nodeTypes: NodeTypes = {
   workflow: WorkflowFlowNode
 };
 
-function createFlowEdges(edges: WorkflowEdge[] = []): Edge[] {
+function getEdgeTone(edge: WorkflowEdge) {
+  if (edge.sourceHandle === "true" || edge.sourceHandle === "continue") {
+    return { className: "workflow-flow-edge-success" };
+  }
+
+  if (edge.sourceHandle === "default" || edge.sourceHandle === "exit") {
+    return { className: "workflow-flow-edge-warning" };
+  }
+
+  return { className: "workflow-flow-edge-primary" };
+}
+
+export function createFlowEdges(edges: WorkflowEdge[] = []): Edge[] {
   return edges.map((edge) => ({
     id: edge.id,
     source: edge.source,
@@ -374,13 +390,7 @@ function createFlowEdges(edges: WorkflowEdge[] = []): Edge[] {
     targetHandle: edge.targetHandle ?? undefined,
     type: "bezier",
     animated: false,
-    className: "workflow-flow-edge",
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      width: 18,
-      height: 18,
-      color: "#5f75a6"
-    }
+    className: `workflow-flow-edge ${getEdgeTone(edge).className}`
   }));
 }
 
@@ -432,7 +442,12 @@ function createFlowNodes(
   });
 }
 
-export function WorkflowPage() {
+type WorkflowPageProps = {
+  onBackToAgents?: () => void;
+};
+
+export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
+  const queryClient = useQueryClient();
   const agentsQuery = useAgents();
   const workflowsQuery = useWorkflows();
   const modelProvidersQuery = useModelProviders();
@@ -469,7 +484,7 @@ export function WorkflowPage() {
   const [previewTextValues, setPreviewTextValues] = useState<Record<string, string>>({});
   const [previewFileValues, setPreviewFileValues] = useState<Record<string, File[]>>({});
   const [isPreviewStreaming, setIsPreviewStreaming] = useState(false);
-  const [previewStreamError, setPreviewStreamError] = useState(false);
+  const canvasRef = useRef<HTMLElement>(null);
   const [previewDebugInfo, setPreviewDebugInfo] = useState<PreviewDebugInfo>({
     runId: "",
     modelProviderId: "",
@@ -531,6 +546,56 @@ export function WorkflowPage() {
     createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, undefined, handleSelectNode, [], modelProviders, modelProviderId, handleUpdateNodeDescription)
   );
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<Edge>(createFlowEdges(workflow?.edges));
+
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
+
+      mm.add(
+        {
+          reduceMotion: "(prefers-reduced-motion: reduce)",
+          allowMotion: "(prefers-reduced-motion: no-preference)"
+        },
+        (context) => {
+          const edgePaths = gsap.utils.toArray<SVGPathElement>(".workflow-flow-edge path, path.workflow-flow-edge");
+
+          if (!edgePaths.length) {
+            return;
+          }
+
+          if (context.conditions?.reduceMotion) {
+            gsap.set(edgePaths, { clearProps: "strokeDashoffset,opacity" });
+            return;
+          }
+
+          gsap.fromTo(
+            edgePaths,
+            { strokeDashoffset: 28, opacity: 0.55 },
+            {
+              strokeDashoffset: 0,
+              opacity: 1,
+              duration: 0.85,
+              ease: "power2.out",
+              stagger: 0.035,
+              overwrite: "auto"
+            }
+          );
+
+          gsap.to(edgePaths, {
+            strokeDashoffset: -28,
+            duration: 2.8,
+            ease: "none",
+            repeat: -1,
+            overwrite: "auto"
+          });
+        },
+        canvasRef
+      );
+
+      return () => mm.revert();
+    },
+    { dependencies: [flowEdges.length, flowNodes.length], scope: canvasRef, revertOnUpdate: true }
+  );
 
   useEffect(() => {
     function handleDeleteSelectedEdge(event: globalThis.KeyboardEvent) {
@@ -623,7 +688,6 @@ export function WorkflowPage() {
     setPreviewMessages([]);
     setPreviewTextValues({});
     setPreviewFileValues({});
-    setPreviewStreamError(false);
     setPreviewDebugInfo({
       runId: "",
       modelProviderId: "",
@@ -662,7 +726,6 @@ export function WorkflowPage() {
     ]);
     setPreviewTextValues({});
     setPreviewFileValues({});
-    setPreviewStreamError(false);
     setIsPreviewStreaming(true);
     event.currentTarget.reset();
     const conversationHistory = previewMessages
@@ -684,8 +747,9 @@ export function WorkflowPage() {
         userInput: userInputValue || messageContent,
         modelProviderId: modelProviderId || undefined,
         knowledgeBaseIds,
+        runCategory: "test",
         conversationHistory
-        },
+      },
         (chunk) => {
           if (chunk) {
             hasVisibleAssistantOutput = true;
@@ -696,8 +760,10 @@ export function WorkflowPage() {
         }
       );
       setPreviewDebugInfo((debugInfo) => ({ ...debugInfo, runId, status: runId ? "success" : "partial" }));
+      if (runId) {
+        void queryClient.invalidateQueries({ queryKey: ["recent-runs"] });
+      }
     } catch (error) {
-      setPreviewStreamError(true);
       setPreviewDebugInfo((debugInfo) => ({ ...debugInfo, status: hasVisibleAssistantOutput ? "partial" : "error" }));
       const errorMessage = error instanceof Error && error.message
         ? error.message
@@ -907,11 +973,13 @@ export function WorkflowPage() {
                   config: { variable: "", operator: "not_empty", compareValue: "", maxIterations: 10 }
                 };
 
-    setLocalNodes((currentNodes) => [...currentNodes, nextNode]);
+    const positionedNode = { ...nextNode, position };
+
+    setLocalNodes((currentNodes) => [...currentNodes, positionedNode]);
     setFlowNodes((currentNodes) => [
       ...currentNodes,
       ...createFlowNodes(
-        [nextNode],
+        [positionedNode],
         id,
         latestRun,
         undefined,
@@ -965,13 +1033,7 @@ export function WorkflowPage() {
           ...connection,
           type: "bezier",
           animated: false,
-          className: "workflow-flow-edge",
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            width: 18,
-            height: 18,
-            color: "#5f75a6"
-          }
+          className: "workflow-flow-edge workflow-flow-edge-primary"
         },
         currentEdges
       )
@@ -1101,15 +1163,6 @@ export function WorkflowPage() {
     updateOutputVariables(getOutputVariables(selectedNode).filter((_, itemIndex) => itemIndex !== index));
   }
 
-  function handleMoveOutputVariable(index: number, direction: -1 | 1) {
-    const outputs = getOutputVariables(selectedNode);
-    const target = index + direction;
-    if (target < 0 || target >= outputs.length) return;
-    const next = [...outputs];
-    [next[index], next[target]] = [next[target], next[index]];
-    updateOutputVariables(next);
-  }
-
   function renderNodeInspector() {
     if (!selectedNode) {
       return <p className="empty-note">请选择一个节点进行配置。</p>;
@@ -1209,6 +1262,7 @@ export function WorkflowPage() {
               />
               <select
                 aria-label="设置变量值"
+                className="workflow-output-selector"
                 onChange={(event) => handleUpdateOutputVariableSelector(index, event.target.value, upstreamVariables)}
                 required
                 value={outputSelectorToValue(item.valueSelector)}
@@ -1225,8 +1279,6 @@ export function WorkflowPage() {
                 ))}
               </select>
               <span className="workflow-output-row-actions">
-                <button aria-label={`上移输出变量 ${index + 1}`} disabled={index === 0} onClick={() => handleMoveOutputVariable(index, -1)} type="button">↑</button>
-                <button aria-label={`下移输出变量 ${index + 1}`} disabled={index === outputVariables.length - 1} onClick={() => handleMoveOutputVariable(index, 1)} type="button">↓</button>
                 <button aria-label={`删除输出变量 ${index + 1}`} onClick={() => handleDeleteOutputVariable(index)} type="button">×</button>
               </span>
             </div>
@@ -1483,6 +1535,14 @@ export function WorkflowPage() {
           <h1>{selectedAgent?.name ?? workflow?.name ?? "工作流配置"}</h1>
           <span>{selectedAgent?.scenario || "配置智能体工作流"}</span>
         </div>
+        {onBackToAgents ? (
+          <div className="workflow-editor-actions">
+            <button aria-label="返回智能体列表" className="workflow-back-button" onClick={onBackToAgents} type="button">
+              <ArrowLeft aria-hidden="true" />
+              返回
+            </button>
+          </div>
+        ) : null}
       </header>
 
       <div className="workflow-editor" aria-label="工作流编辑器" data-canvas-mode={canvasMode} onPointerDownCapture={handleEditorPointerDownCapture}>
@@ -1537,7 +1597,7 @@ export function WorkflowPage() {
         </nav>
         {layoutMessage ? <p className="workflow-layout-toast">{layoutMessage}</p> : null}
 
-        <section className="workflow-canvas" aria-label="工作流画布">
+        <section ref={canvasRef} className="workflow-canvas" aria-label="工作流画布">
           <div className="workflow-canvas-actions" aria-label="画布运行操作">
             <button aria-label="测试运行" className="workflow-run-button" onClick={handleOpenPreview} type="button">
               <span aria-hidden="true">▷</span>
@@ -1718,7 +1778,6 @@ export function WorkflowPage() {
                   ) : null}
                 </>
               )}
-              {previewStreamError ? <p className="inline-error">运行调试失败，请检查模型 API 配置。</p> : null}
               {updateWorkflow.isError ? <p className="inline-error">保存失败，请稍后重试。</p> : null}
             </div>
           </aside>

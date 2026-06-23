@@ -1,8 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.modules.trace.models import RunModel, TraceStepModel
-from app.modules.trace.schemas import RunTraceCreate, RunTraceRead, TraceStepCreate, TraceStepRead
+from app.modules.trace.models import RunModel, TraceStepModel, utc_now
+from app.modules.trace.schemas import RecentRunRead, RunTraceCreate, RunTraceRead, TraceStepCreate, TraceStepRead
 
 
 class TraceRepository:
@@ -19,6 +19,8 @@ class TraceRepository:
                     id=payload.id,
                     agent_id=payload.agent_id,
                     status=payload.status,
+                    run_category=payload.run_category,
+                    failure_reason=payload.failure_reason,
                     cost_cny=payload.cost_cny,
                     final_output=payload.final_output,
                 )
@@ -28,6 +30,10 @@ class TraceRepository:
             session.commit()
 
         return RunTraceRead(**payload.model_dump(by_alias=True))
+
+    @staticmethod
+    def _summary_status(status: str) -> str:
+        return "success" if status == "success" else "failed"
 
     def get_trace(self, run_id: str) -> RunTraceRead:
         if self._session_factory:
@@ -42,6 +48,55 @@ class TraceRepository:
                     return self._run_to_read_model(run, list(steps))
 
         return self._seed_trace(run_id)
+
+    def list_recent(self, agent_names: dict[str, str] | None = None, limit: int = 4) -> list[RecentRunRead]:
+        seed_agent_names = {
+            "agent-after-sale": "售后政策助手",
+            "agent-contract-review": "合同审阅助手",
+            "agent-data-query": "数据查询助手",
+        }
+        agent_names = {**seed_agent_names, **(agent_names or {})}
+        if self._session_factory:
+            with self._session_factory() as session:
+                runs = session.scalars(select(RunModel).order_by(RunModel.created_at.desc()).limit(limit)).all()
+                if runs:
+                    return [self._run_to_recent_model(run, agent_names.get(run.agent_id, run.agent_id)) for run in runs]
+
+        seeds = [
+            self._seed_trace("run_8f23"),
+            RunTraceRead(
+                id="run_3ac1",
+                agentId="agent-contract-review",
+                status="failed",
+                runCategory="production",
+                failureReason="引用置信度不足，等待人工复核",
+                costCny=0.12,
+                finalOutput=None,
+                steps=[],
+            ),
+            RunTraceRead(
+                id="run_922e",
+                agentId="agent-data-query",
+                status="success",
+                runCategory="test",
+                failureReason=None,
+                costCny=0.04,
+                finalOutput="权限策略已拦截敏感字段。",
+                steps=[],
+            ),
+        ]
+        return [
+            RecentRunRead(
+                id=run.id,
+                agentId=run.agent_id,
+                agentName=agent_names.get(run.agent_id, run.agent_id),
+                runTime=utc_now(),
+                failureReason=run.failure_reason or "无",
+                runCategory=run.run_category,
+                status=self._summary_status(run.status),
+            )
+            for run in seeds[:limit]
+        ]
 
     def _step_to_model(self, run_id: str, step_order: int, step: TraceStepCreate) -> TraceStepModel:
         return TraceStepModel(
@@ -62,6 +117,8 @@ class TraceRepository:
             id=run.id,
             agentId=run.agent_id,
             status=run.status,
+            runCategory=run.run_category,
+            failureReason=run.failure_reason,
             costCny=run.cost_cny,
             finalOutput=run.final_output,
             steps=[
@@ -79,11 +136,24 @@ class TraceRepository:
             ],
         )
 
+    def _run_to_recent_model(self, run: RunModel, agent_name: str) -> RecentRunRead:
+        return RecentRunRead(
+            id=run.id,
+            agentId=run.agent_id,
+            agentName=agent_name,
+            runTime=run.created_at,
+            failureReason=run.failure_reason or "无",
+            runCategory=run.run_category,
+            status=self._summary_status(run.status),
+        )
+
     def _seed_trace(self, run_id: str) -> RunTraceRead:
         return RunTraceRead(
             id=run_id,
             agentId="agent-after-sale",
             status="blocked",
+            runCategory="test",
+            failureReason="create_ticket degraded",
             costCny=0.09,
             finalOutput=None,
             steps=[

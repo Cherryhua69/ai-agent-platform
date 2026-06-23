@@ -25,9 +25,24 @@ def test_frontend_trace_contract_uses_camel_case_fields():
     assert response.status_code == 200
     body = response.json()
     assert body["agentId"] == "agent-after-sale"
+    assert body["runCategory"] == "test"
+    assert body["failureReason"] == "create_ticket degraded"
     assert body["costCny"] == 0.09
     assert body["steps"][0]["latencyMs"] == 18
     assert "latency_ms" not in body["steps"][0]
+
+
+def test_frontend_recent_runs_contract_contains_dashboard_fields():
+    client = TestClient(app)
+
+    response = client.get("/api/runs/recent")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body
+    assert set(body[0]) == {"id", "agentId", "agentName", "runTime", "failureReason", "runCategory", "status"}
+    assert {item["runCategory"] for item in body} <= {"test", "production"}
+    assert {item["status"] for item in body} <= {"success", "failed"}
 
 
 def test_frontend_can_call_api_with_localhost_origin():

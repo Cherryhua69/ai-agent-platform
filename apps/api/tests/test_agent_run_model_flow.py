@@ -34,6 +34,8 @@ def test_agent_run_uses_configured_model_provider_and_knowledge_bases():
     body = response.json()
     assert body["agentId"] == agent["id"]
     assert body["status"] == "success"
+    assert body["runCategory"] == "test"
+    assert body["failureReason"] is None
     assert body["finalOutput"]
     assert "canvas-model" in body["finalOutput"]
     assert body["steps"][1]["title"] == "Knowledge retrieval"

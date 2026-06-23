@@ -17,29 +17,38 @@ export function useViewTransition(activeView: string) {
           allowMotion: "(prefers-reduced-motion: no-preference)"
         },
         (context) => {
+          const viewPages = gsap.utils.toArray<HTMLElement>(".view-page");
+          const revealItems = gsap.utils.toArray<HTMLElement>(".reveal-item");
+
           if (context.conditions?.reduceMotion) {
-            gsap.set(".reveal-item", { clearProps: "all" });
+            if (revealItems.length) {
+              gsap.set(revealItems, { clearProps: "all" });
+            }
             return;
           }
 
-          gsap.fromTo(
-            ".view-page",
-            { y: 10, autoAlpha: 0 },
-            { y: 0, autoAlpha: 1, duration: 0.26, ease: "power2.out", overwrite: "auto" }
-          );
+          if (viewPages.length) {
+            gsap.fromTo(
+              viewPages,
+              { y: 10, autoAlpha: 0 },
+              { y: 0, autoAlpha: 1, duration: 0.26, ease: "power2.out", overwrite: "auto" }
+            );
+          }
 
-          gsap.fromTo(
-            ".reveal-item",
-            { y: 8, autoAlpha: 0 },
-            {
-              y: 0,
-              autoAlpha: 1,
-              duration: 0.3,
-              ease: "power2.out",
-              stagger: 0.025,
-              overwrite: "auto"
-            }
-          );
+          if (revealItems.length) {
+            gsap.fromTo(
+              revealItems,
+              { y: 8, autoAlpha: 0 },
+              {
+                y: 0,
+                autoAlpha: 1,
+                duration: 0.3,
+                ease: "power2.out",
+                stagger: 0.025,
+                overwrite: "auto"
+              }
+            );
+          }
         },
         scope
       );

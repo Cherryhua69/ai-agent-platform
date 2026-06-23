@@ -2,6 +2,7 @@ export type AgentStatus = "draft" | "ready" | "published" | "blocked";
 export type HealthStatus = "online" | "degraded" | "offline" | "guarded";
 export type GateStatus = "passed" | "blocked" | "review_required";
 export type TraceStepStatus = "success" | "warning" | "failed" | "blocked";
+export type RunCategory = "test" | "production";
 
 export type Agent = {
   id: string;
@@ -114,9 +115,37 @@ export type RunTrace = {
   id: string;
   agentId: string;
   status: TraceStepStatus;
+  runCategory: RunCategory;
+  failureReason?: string;
   costCny: number;
   finalOutput?: string;
   steps: TraceStep[];
+};
+
+export type RecentRun = {
+  id: string;
+  agentId: string;
+  agentName: string;
+  runTime?: string;
+  failureReason: string;
+  runCategory: RunCategory;
+  status: "success" | "failed";
+};
+
+export type DashboardSummary = {
+  runSuccessRate: {
+    value: number;
+    windowHours: number;
+    totalRuns: number;
+    successfulRuns: number;
+  };
+  publishedAgents: number;
+  pendingAgents: Array<{
+    id: string;
+    name: string;
+    description: string;
+    status: "configuring";
+  }>;
 };
 
 export type EvaluationRun = {

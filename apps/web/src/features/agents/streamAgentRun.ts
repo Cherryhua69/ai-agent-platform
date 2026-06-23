@@ -3,6 +3,7 @@ export type StreamAgentRunPayload = {
   userInput: string;
   modelProviderId?: string;
   knowledgeBaseIds: string[];
+  runCategory?: "test" | "production";
   conversationHistory: Array<{ role: "user" | "assistant"; content: string }>;
 };
 

@@ -1,4 +1,4 @@
-import type { Agent, KnowledgeBase, ModelProvider, ReleaseGate, RunTrace, Tool, Workflow } from "../../types/domain";
+import type { Agent, KnowledgeBase, ModelProvider, RecentRun, ReleaseGate, RunTrace, Tool, Workflow } from "../../types/domain";
 
 export const agents: Agent[] = [
   {
@@ -32,9 +32,7 @@ export const workflows: Workflow[] = [
     name: "售后工单 Agentflow",
     status: "blocked",
     toolHealthStatus: "degraded",
-    nodes: [
-      { id: "node-trigger", type: "trigger", name: "用户输入", status: "success", config: { inputFields: [] } }
-    ]
+    nodes: [{ id: "node-trigger", type: "trigger", name: "用户输入", status: "success", config: { inputFields: [] } }]
   }
 ];
 
@@ -116,6 +114,8 @@ export const runTrace: RunTrace = {
   id: "run_8f23",
   agentId: "agent-after-sale",
   status: "success",
+  runCategory: "test",
+  failureReason: "create_ticket timeout",
   costCny: 0.06,
   finalOutput: "[local-smoke] 售后政策助手已根据知识库生成答复。",
   steps: [
@@ -162,6 +162,8 @@ export const runTrace: RunTrace = {
   ]
 };
 
+export const recentRuns: RecentRun[] = [];
+
 export const fixtures = {
   agents,
   workflows,
@@ -169,5 +171,6 @@ export const fixtures = {
   tools,
   modelProviders,
   releaseGates,
-  runTrace
+  runTrace,
+  recentRuns
 };

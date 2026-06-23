@@ -47,7 +47,9 @@ class AgentRunService:
         run_id = f"run_{uuid4().hex[:8]}"
         workflow = self._workflows.get_by_agent_id(agent_id) if self._workflows else None
         if workflow is not None and self._graph_executor is not None and self._is_graph_configured(workflow):
+            request.run_category = request.run_category or "production"
             return self._run_graph(run_id, agent_id, request, workflow, stream_sink, stream_node_ids)
+        request.run_category = request.run_category or "test"
 
         provider = self._model_providers.get(request.model_provider_id) if self._model_providers else None
         knowledge_ids = request.knowledge_base_ids or ["kb-after-sale"]
@@ -58,6 +60,8 @@ class AgentRunService:
                     id=run_id,
                     agentId=agent_id,
                     status="failed",
+                    runCategory=request.run_category,
+                    failureReason="Model provider is not configured.",
                     costCny=0.0,
                     finalOutput="Model provider is not configured.",
                     steps=[
@@ -108,6 +112,8 @@ class AgentRunService:
                 id=run_id,
                 agentId=agent_id,
                 status="success",
+                runCategory=request.run_category,
+                failureReason=None,
                 costCny=result.cost_cny,
                 finalOutput=result.content,
                 steps=[
@@ -239,6 +245,8 @@ class AgentRunService:
     def _graph_inputs(cls, workflow: WorkflowRead, request: AgentRunRequest) -> dict[str, object]:
         user_input = request.user_input
         inputs: dict[str, object] = {"userInput": user_input, "text": user_input}
+        if request.model_provider_id:
+            inputs["modelProviderId"] = request.model_provider_id
         conversation_history = cls._conversation_history_text(request)
         if conversation_history:
             inputs["conversationHistory"] = conversation_history
@@ -286,6 +294,8 @@ class AgentRunService:
                     id=run_id,
                     agentId=agent_id,
                     status="failed",
+                    runCategory=request.run_category or "production",
+                    failureReason=str(failed_step.get("message") or exc),
                     costCny=0.0,
                     finalOutput=str(exc),
                     steps=[
@@ -329,6 +339,8 @@ class AgentRunService:
                 id=run_id,
                 agentId=agent_id,
                 status="success",
+                runCategory=request.run_category or "production",
+                failureReason=None,
                 costCny=cost_cny,
                 finalOutput=self._final_output_text(execution.final_output),
                 steps=steps,

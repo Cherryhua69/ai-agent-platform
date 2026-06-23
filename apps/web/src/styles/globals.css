@@ -695,26 +695,43 @@ tr.selected td {
   table-layout: fixed;
 }
 
+.dashboard-run-table .table-wrap {
+  overflow-x: hidden;
+}
+
 .dashboard-run-table th:nth-child(1),
 .dashboard-run-table td:nth-child(1) {
-  width: 30%;
+  width: 24%;
 }
 
 .dashboard-run-table th:nth-child(2),
 .dashboard-run-table td:nth-child(2) {
-  width: 48%;
+  width: 18%;
 }
 
 .dashboard-run-table th:nth-child(3),
 .dashboard-run-table td:nth-child(3) {
-  width: 22%;
+  width: 30%;
+}
+
+.dashboard-run-table th:nth-child(4),
+.dashboard-run-table td:nth-child(4) {
+  width: 15%;
+}
+
+.dashboard-run-table th:nth-child(5),
+.dashboard-run-table td:nth-child(5) {
+  width: 13%;
 }
 
 .run-subject,
-.run-reason {
+.run-time,
+.run-reason,
+.run-category {
   min-width: 0;
   display: grid;
   gap: 5px;
+  overflow-wrap: anywhere;
 }
 
 .run-subject strong {
@@ -728,9 +745,22 @@ tr.selected td {
   line-height: 1.25;
 }
 
+.run-time,
+.run-reason,
+.run-category {
+  line-height: 1.35;
+}
+
 .run-reason {
   color: #4e5270;
   line-height: 1.45;
+}
+
+.run-category {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .todo-list {
@@ -1091,6 +1121,40 @@ tr.selected td {
   flex-wrap: wrap;
 }
 
+.workflow-back-button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px 0 12px;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(239, 244, 255, 0.96));
+  color: #155dfc;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.12);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.workflow-back-button svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.3;
+}
+
+.workflow-back-button:hover,
+.workflow-back-button:focus-visible {
+  border-color: rgba(37, 99, 235, 0.36);
+  background: #ffffff;
+  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.16);
+  transform: translateY(-1px);
+}
+
 .workflow-editor {
   position: relative;
   min-height: 0;
@@ -1425,6 +1489,12 @@ tr.selected td {
   font-size: 13px;
 }
 
+.workflow-output-selector {
+  appearance: none;
+  background-image: none;
+  cursor: pointer;
+}
+
 .workflow-output-row input:focus,
 .workflow-output-row select:focus {
   border-color: #9bbcff;
@@ -1521,33 +1591,44 @@ tr.selected td {
 
 .workflow-handle {
   z-index: 3;
-  width: 14px;
-  height: 14px;
-  border: 2px solid #ffffff;
-  background: #2563eb;
-  opacity: 0;
+  width: 16px;
+  height: 16px;
+  border: 3px solid #ffffff;
+  background:
+    radial-gradient(circle at 50% 50%, #ffffff 0 20%, transparent 23%),
+    #2563eb;
+  opacity: 0.92;
   pointer-events: all !important;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
   transition:
     opacity 160ms ease,
     box-shadow 180ms ease,
     transform 180ms ease;
-  transform: scale(0.72);
+  transform-origin: center;
 }
 
 .workflow-flow-node:hover .workflow-handle {
   opacity: 1;
   pointer-events: all !important;
   box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.14), 0 6px 16px rgba(37, 99, 235, 0.32);
-  transform: scale(1);
 }
 
 .workflow-handle-left {
-  left: -6px;
+  left: 0;
+  transform: translate(-50%, -50%) scale(0.86);
+}
+
+.workflow-flow-node:hover .workflow-handle-left {
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .workflow-handle-right {
-  right: -6px;
+  right: 0;
+  transform: translate(50%, -50%) scale(0.86);
+}
+
+.workflow-flow-node:hover .workflow-handle-right {
+  transform: translate(50%, -50%) scale(1);
 }
 
 .workflow-flow-node-button strong,
@@ -1621,11 +1702,13 @@ tr.selected td {
   font-size: 10px;
 }
 
-.workflow-flow-edge {
+.workflow-flow-edge,
+.workflow-flow-edge path {
   stroke: #5f75a6;
   stroke-width: 2.15;
   stroke-linecap: round;
   stroke-linejoin: round;
+  stroke-dasharray: 18 10;
   filter: drop-shadow(0 4px 8px rgba(37, 99, 235, 0.12));
   transition:
     stroke 180ms ease,
@@ -1633,8 +1716,27 @@ tr.selected td {
     filter 180ms ease;
 }
 
+.workflow-flow-edge-primary,
+.workflow-flow-edge-primary path {
+  stroke: #2563eb;
+}
+
+.workflow-flow-edge-success,
+.workflow-flow-edge-success path {
+  stroke: #16a34a;
+  filter: drop-shadow(0 4px 9px rgba(22, 163, 74, 0.14));
+}
+
+.workflow-flow-edge-warning,
+.workflow-flow-edge-warning path {
+  stroke: #d97706;
+  filter: drop-shadow(0 4px 9px rgba(217, 119, 6, 0.14));
+}
+
 .workflow-flow-edge:hover,
-.workflow-flow-edge.selected {
+.workflow-flow-edge:hover path,
+.workflow-flow-edge.selected,
+.workflow-flow-edge.selected path {
   stroke: #2563eb;
   stroke-width: 2.6;
   filter: drop-shadow(0 6px 12px rgba(37, 99, 235, 0.2));
@@ -1918,6 +2020,37 @@ tr.selected td {
   min-height: 0;
   overflow: auto;
   padding: 0 4px 4px;
+}
+
+.inspector-panel:not(.workflow-preview-panel) {
+  padding: 48px 8px 12px 12px;
+}
+
+.inspector-panel:not(.workflow-preview-panel) .inspector-content {
+  padding: 0 10px 4px 0;
+  scrollbar-color: rgba(148, 163, 184, 0.42) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.inspector-panel:not(.workflow-preview-panel) .inspector-content::-webkit-scrollbar {
+  width: 7px;
+}
+
+.inspector-panel:not(.workflow-preview-panel) .inspector-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.inspector-panel:not(.workflow-preview-panel) .inspector-content::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.34);
+  background-clip: padding-box;
+}
+
+.inspector-panel:not(.workflow-preview-panel) .inspector-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.46);
+  background-clip: padding-box;
 }
 
 .inspector-close {
