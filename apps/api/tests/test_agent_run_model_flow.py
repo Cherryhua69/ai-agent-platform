@@ -42,3 +42,47 @@ def test_agent_run_uses_configured_model_provider_and_knowledge_bases():
     assert "kb-after-sale" in body["steps"][1]["outputSummary"]
     assert body["steps"][2]["title"] == "LangChain model call"
     assert provider["id"] in body["steps"][2]["inputSummary"]
+
+
+def test_agent_run_without_explicit_provider_uses_default_llm_provider():
+    client = TestClient(app)
+    client.post(
+        "/api/model-providers",
+        json={
+            "name": "Default embedding model",
+            "providerType": "openai-compatible",
+            "modelPurpose": "embedding",
+            "baseUrl": "mock://local",
+            "model": "embedding-default-should-not-run",
+            "apiKey": "sk-embedding",
+            "isDefault": True,
+        },
+    )
+    llm_provider = client.post(
+        "/api/model-providers",
+        json={
+            "name": "Default reasoning model",
+            "providerType": "openai-compatible",
+            "modelPurpose": "llm",
+            "baseUrl": "mock://local",
+            "model": "llm-default-should-run",
+            "apiKey": "sk-llm",
+            "isDefault": True,
+        },
+    ).json()
+    agent = client.post(
+        "/api/agents",
+        json={"name": "Default model helper", "scenario": "Use the default reasoning model"},
+    ).json()
+
+    response = client.post(
+        f"/api/agents/{agent['id']}/runs",
+        json={"userInput": "Use the default provider"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "success"
+    assert "llm-default-should-run" in body["finalOutput"]
+    assert "embedding-default-should-not-run" not in body["finalOutput"]
+    assert llm_provider["id"] in body["steps"][2]["inputSummary"]

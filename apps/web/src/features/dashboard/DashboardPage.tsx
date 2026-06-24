@@ -44,15 +44,16 @@ export function DashboardPage() {
   return (
     <PageScaffold className="dashboard-page" title="总览" description="系统总体信息预览">
       <div className="metrics-grid">
-        <MetricCard label="智能体" value={String(agents.length)} detail="当前智能体数量" tone="blue" bars={[48, 56, 62, 74, 66]} />
+        <MetricCard label="智能体" value={String(agents.length)} detail="当前智能体数量" tone="blue" visual="agent" metricValue={agents.length} metricTotal={8} />
         <MetricCard
           label="运行成功率"
           value={`${runSuccessRate?.value ?? 0}%`}
           detail={`近 ${runSuccessRate?.windowHours ?? 24} 小时，${runSuccessRate?.successfulRuns ?? 0}/${runSuccessRate?.totalRuns ?? 0} 次成功`}
           tone="mint"
-          bars={[62, 70, 68, 78, 82]}
+          visual="rate"
+          metricValue={runSuccessRate?.value ?? 0}
         />
-        <MetricCard label="已发布" value={String(summary?.publishedAgents ?? 0)} detail="发布功能暂未实现" tone="pink" bars={[35, 42, 50, 68, 84]} />
+        <MetricCard label="已发布" value={String(summary?.publishedAgents ?? 0)} detail="发布功能暂未实现" tone="pink" visual="publish" metricValue={summary?.publishedAgents ?? 0} metricTotal={4} />
       </div>
       <div className="grid-two">
         <Panel title="近期运行" strong>

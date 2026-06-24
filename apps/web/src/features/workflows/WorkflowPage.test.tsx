@@ -793,6 +793,77 @@ describe("WorkflowPage", () => {
     expect(screen.getByLabelText("模型配置")).toBeInTheDocument();
   });
 
+  it("only lists reasoning model providers in LLM model selectors", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/workflows")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "workflow-after-sale",
+              agentId: "agent-after-sale",
+              name: "After-sale Agentflow",
+              status: "ready",
+              toolHealthStatus: "online",
+              nodes: [
+                { id: "node-trigger", type: "trigger", name: "User input", status: "success" },
+                { id: "node-llm", type: "llm", name: "Model decision", status: "success" }
+              ],
+              edges: [{ id: "edge-trigger-llm", source: "node-trigger", target: "node-llm", sourceHandle: "right", targetHandle: "left" }]
+            }
+          ]
+        };
+      }
+
+      if (url.endsWith("/api/model-providers")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "model_provider_embedding",
+              name: "Default embedding",
+              providerType: "openai-compatible",
+              modelPurpose: "embedding",
+              baseUrl: "mock://local",
+              model: "text2vec-large-chinese",
+              apiKeyPreview: "sk-...ding",
+              status: "online",
+              isDefault: true
+            },
+            {
+              id: "model_provider_llm",
+              name: "Default reasoning",
+              providerType: "openai-compatible",
+              modelPurpose: "llm",
+              baseUrl: "mock://local",
+              model: "Luban",
+              apiKeyPreview: "sk-...llm",
+              status: "online",
+              isDefault: true
+            }
+          ]
+        };
+      }
+
+      if (url.endsWith("/api/knowledge-bases")) {
+        return { ok: true, json: async () => [] };
+      }
+
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Model decision" }));
+
+    const reasoningOption = await screen.findByRole("option", { name: "Default reasoning / Luban" });
+    expect(reasoningOption.parentElement).toHaveValue("model_provider_llm");
+    expect(screen.queryByRole("option", { name: "Default embedding / text2vec-large-chinese" })).not.toBeInTheDocument();
+  });
+
   it("keeps only run and publish actions at the canvas top right while auto-saving workflow edits", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -1531,7 +1602,7 @@ describe("WorkflowPage", () => {
     expect(await within(preview).findByText("模型上下文过长，请缩短历史后重试")).toBeInTheDocument();
     expect(within(preview).getByText("运行状态").nextSibling).toHaveTextContent("error");
     fireEvent.click(screen.getByRole("button", { name: "用户输入" }));
-    expect(screen.queryByText("运行调试失败，请检查模型 API 配置。")).not.toBeInTheDocument();
+    expect(screen.queryByText("运行调试失败，请检查模型配置。")).not.toBeInTheDocument();
   });
 
   it("keeps streamed assistant text when a later stream error arrives", async () => {

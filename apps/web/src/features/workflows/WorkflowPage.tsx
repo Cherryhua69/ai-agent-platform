@@ -53,6 +53,10 @@ const flowNodeSize = { width: 168, height: 96 };
 const emptyAgents: Agent[] = [];
 const emptyWorkflows: Workflow[] = [];
 const emptyModelProviders: ModelProvider[] = [];
+
+function isReasoningModelProvider(provider: ModelProvider) {
+  return !provider.modelPurpose || provider.modelPurpose === "llm";
+}
 const emptyKnowledgeBases: KnowledgeBase[] = [];
 
 type LlmNodeConfig = {
@@ -495,6 +499,7 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
   const [isInputTypeMenuOpen, setIsInputTypeMenuOpen] = useState(false);
   const agents = agentsQuery.data ?? emptyAgents;
   const workflows = workflowsQuery.data ?? emptyWorkflows;
+  const llmModelProviders = useMemo(() => modelProviders.filter(isReasoningModelProvider), [modelProviders]);
   const selectedWorkflow = workflows.find((item) => item.id === selectedWorkflowId) ?? workflows.find((item) => item.agentId === selectedAgentId);
   const workflow = selectedWorkflow ?? (!selectedWorkflowId && !selectedAgentId ? workflows[0] : undefined);
   const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? agents.find((agent) => agent.workflowId === workflow?.id);
@@ -543,7 +548,7 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
     []
   );
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(
-    createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, undefined, handleSelectNode, [], modelProviders, modelProviderId, handleUpdateNodeDescription)
+    createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, undefined, handleSelectNode, [], llmModelProviders, modelProviderId, handleUpdateNodeDescription)
   );
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<Edge>(createFlowEdges(workflow?.edges));
 
@@ -643,10 +648,10 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
   );
 
   useEffect(() => {
-    if (!modelProviderId && modelProviders.length > 0) {
-      setModelProviderId(modelProviders.find((provider) => provider.isDefault)?.id ?? modelProviders[0].id);
+    if (!modelProviderId && llmModelProviders.length > 0) {
+      setModelProviderId(llmModelProviders.find((provider) => provider.isDefault)?.id ?? llmModelProviders[0].id);
     }
-  }, [modelProviderId, modelProviders, setModelProviderId]);
+  }, [llmModelProviders, modelProviderId, setModelProviderId]);
 
   useEffect(() => {
     if (!selectedNodeId && nodes[0]) {
@@ -656,13 +661,13 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
 
   useEffect(() => {
     setFlowNodes((currentNodes) =>
-      createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, currentNodes, modelProviders, modelProviderId, handleUpdateNodeDescription)
+      createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, currentNodes, llmModelProviders, modelProviderId, handleUpdateNodeDescription)
     );
-  }, [handleDeleteNode, handleSelectNode, handleUpdateNodeDescription, latestRun, modelProviderId, modelProviders, nodes, selectedNode?.id, setFlowNodes]);
+  }, [handleDeleteNode, handleSelectNode, handleUpdateNodeDescription, latestRun, llmModelProviders, modelProviderId, nodes, selectedNode?.id, setFlowNodes]);
 
   useEffect(() => {
     setFlowNodes(
-      createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, [], modelProviders, modelProviderId, handleUpdateNodeDescription)
+      createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, [], llmModelProviders, modelProviderId, handleUpdateNodeDescription)
     );
     setFlowEdges(createFlowEdges(workflow?.edges));
     hasLoadedWorkflowRef.current = false;
@@ -675,7 +680,7 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
   }, [workflow?.id]);
 
   const selectedLlmConfig = selectedNode?.type === "llm" ? getLlmConfig(selectedNode, modelProviderId) : null;
-  const selectedModel = modelProviders.find((provider) => provider.id === (selectedLlmConfig?.modelProviderId || modelProviderId));
+  const selectedModel = llmModelProviders.find((provider) => provider.id === (selectedLlmConfig?.modelProviderId || modelProviderId));
   const failedStep = latestRun?.steps.find((step) => step.status === "failed");
 
   function handleOpenPreview() {
@@ -985,7 +990,7 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
         undefined,
         handleSelectNode,
         [],
-        modelProviders,
+        llmModelProviders,
         modelProviderId,
         handleUpdateNodeDescription
       ).map((node) => ({ ...node, position }))
@@ -1385,7 +1390,7 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
             <span>模型配置</span>
             <select aria-label="模型配置" value={llmConfig.modelProviderId} onChange={(event) => updateSelectedLlmConfig({ modelProviderId: event.target.value })}>
               <option value="">请选择模型配置</option>
-              {modelProviders.map((provider) => (
+              {llmModelProviders.map((provider) => (
                 <option key={provider.id} value={provider.id}>
                   {provider.name} / {provider.model}
                 </option>
@@ -1479,10 +1484,10 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
         <div className="field-stack">
           <p className="node-description">{selectedNode.description ?? LLM_DESCRIPTION}</p>
           <label className="field-stack">
-            <span>模型 API</span>
-            <select aria-label="模型 API" value={modelProviderId} onChange={(event) => setModelProviderId(event.target.value)}>
+            <span>模型配置</span>
+            <select aria-label="模型配置" value={modelProviderId} onChange={(event) => setModelProviderId(event.target.value)}>
               <option value="">请选择模型配置</option>
-              {modelProviders.map((provider) => (
+              {llmModelProviders.map((provider) => (
                 <option key={provider.id} value={provider.id}>
                   {provider.name} / {provider.model}
                 </option>

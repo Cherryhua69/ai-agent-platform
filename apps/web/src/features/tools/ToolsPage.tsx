@@ -1,6 +1,6 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import type { ModelProvider } from "../../types/domain";
+import type { ModelProvider, ModelPurpose } from "../../types/domain";
 import { PageScaffold, Panel, SimpleTable, StatusPill } from "../shared/ViewBlocks";
 import { useCreateModelProvider } from "./useCreateModelProvider";
 import { useModelProviders } from "./useModelProviders";
@@ -14,6 +14,7 @@ type DialogMode = "create" | "edit";
 type ModelApiForm = {
   name: string;
   providerType: string;
+  modelPurpose: ModelPurpose;
   baseUrl: string;
   model: string;
   apiKey: string;
@@ -23,16 +24,63 @@ type ModelApiForm = {
 const emptyModelApiForm: ModelApiForm = {
   name: "",
   providerType: "openai-compatible",
+  modelPurpose: "llm",
   baseUrl: "",
   model: "",
   apiKey: "",
   isDefault: false
 };
 
+const purposeLabels: Record<ModelPurpose, string> = {
+  llm: "推理模型",
+  embedding: "嵌入模型",
+  rerank: "重排模型"
+};
+
+const defaultPurposeLabels: Record<ModelPurpose, string> = {
+  llm: "默认推理",
+  embedding: "默认嵌入",
+  rerank: "默认重排"
+};
+
+const defaultPurposeCheckboxLabels: Record<ModelPurpose, string> = {
+  llm: "设为默认推理模型",
+  embedding: "设为默认嵌入模型",
+  rerank: "设为默认重排模型"
+};
+
+const purposeModelLabels: Record<ModelPurpose, string> = {
+  llm: "推理模型名",
+  embedding: "Embedding 模型名",
+  rerank: "重排模型名"
+};
+
+const purposeModelPlaceholders: Record<ModelPurpose, string> = {
+  llm: "qwen-plus",
+  embedding: "text-embedding-v3 / bge-m3 / nomic-embed-text",
+  rerank: "bge-reranker-v2-m3"
+};
+
+function normalizePurpose(purpose: string | undefined): ModelPurpose {
+  if (purpose === "embedding" || purpose === "rerank") {
+    return purpose;
+  }
+  return "llm";
+}
+
+function statusLabel(status: ModelProvider["status"]) {
+  return status === "online" ? "在线" : "离线";
+}
+
+function statusTone(status: ModelProvider["status"]) {
+  return status === "online" ? "ok" : "bad";
+}
+
 function formFromProvider(provider: ModelProvider): ModelApiForm {
   return {
     name: provider.name,
     providerType: provider.providerType,
+    modelPurpose: normalizePurpose(provider.modelPurpose),
     baseUrl: provider.baseUrl,
     model: provider.model,
     apiKey: "",
@@ -47,6 +95,7 @@ export function ToolsPage() {
   const [selectedToolType, setSelectedToolType] = useState<ToolCategory>("model");
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
   const [modelApiForm, setModelApiForm] = useState<ModelApiForm>(emptyModelApiForm);
+  const [autoTestedProviderKey, setAutoTestedProviderKey] = useState<string | null>(null);
   const toolsQuery = useTools();
   const modelProvidersQuery = useModelProviders();
   const createModelProvider = useCreateModelProvider();
@@ -54,9 +103,13 @@ export function ToolsPage() {
   const updateModelProvider = useUpdateModelProvider();
   const tools = toolsQuery.data ?? [];
   const modelProviders = modelProvidersQuery.data ?? [];
+  const modelProviderIdsKey = useMemo(() => modelProviders.map((provider) => provider.id).join("|"), [modelProviders]);
   const isSavingModelApi = createModelProvider.isPending || updateModelProvider.isPending;
   const modelApiError = createModelProvider.isError || updateModelProvider.isError;
   const testingProviderId = testModelProvider.variables?.id;
+  const llmCount = modelProviders.filter((provider) => normalizePurpose(provider.modelPurpose) === "llm").length;
+  const embeddingCount = modelProviders.filter((provider) => normalizePurpose(provider.modelPurpose) === "embedding").length;
+  const rerankCount = modelProviders.filter((provider) => normalizePurpose(provider.modelPurpose) === "rerank").length;
 
   const demoTools =
     tools.length > 0
@@ -94,6 +147,23 @@ export function ToolsPage() {
   const mcpTools = demoTools.filter((tool) => tool.type === "mcp");
   const apiTools = demoTools.filter((tool) => tool.type === "api" || tool.type === "trigger");
 
+  useEffect(() => {
+    if (activeCategory !== "model") {
+      if (autoTestedProviderKey !== null) {
+        setAutoTestedProviderKey(null);
+      }
+      return;
+    }
+    if (!modelProviderIdsKey || autoTestedProviderKey === modelProviderIdsKey) {
+      return;
+    }
+
+    setAutoTestedProviderKey(modelProviderIdsKey);
+    modelProviders.forEach((provider) => {
+      testModelProvider.mutate({ id: provider.id });
+    });
+  }, [activeCategory, autoTestedProviderKey, modelProviderIdsKey, modelProviders, testModelProvider]);
+
   function openCreateDialog() {
     setDialogMode("create");
     setEditingProviderId(null);
@@ -121,7 +191,7 @@ export function ToolsPage() {
   function handleModelApiChange(field: keyof ModelApiForm, value: string | boolean) {
     setModelApiForm((current) => ({
       ...current,
-      [field]: value
+      [field]: field === "modelPurpose" ? normalizePurpose(String(value)) : value
     }));
   }
 
@@ -130,6 +200,7 @@ export function ToolsPage() {
     const payload = {
       name: modelApiForm.name.trim(),
       providerType: modelApiForm.providerType.trim(),
+      modelPurpose: modelApiForm.modelPurpose,
       baseUrl: modelApiForm.baseUrl.trim(),
       model: modelApiForm.model.trim(),
       apiKey: modelApiForm.apiKey,
@@ -155,8 +226,8 @@ export function ToolsPage() {
       <section className="modal-panel" role="dialog" aria-modal="true" aria-labelledby="tool-dialog-title">
         <div className="modal-head">
           <div>
-            <strong id="tool-dialog-title">{dialogMode === "edit" ? "编辑模型 API" : "添加工具"}</strong>
-            <span>{dialogMode === "edit" ? "修改模型 API 配置，API Key 留空则保持原密钥。" : "选择工具类型并填写对应配置。"}</span>
+            <strong id="tool-dialog-title">{dialogMode === "edit" ? "编辑模型配置" : "添加工具"}</strong>
+            <span>{dialogMode === "edit" ? "修改模型配置，API Key 留空则保持原密钥。" : "选择工具类型并填写对应配置。"}</span>
           </div>
           <button aria-label="关闭弹窗" className="modal-close" onClick={closeDialog} type="button">
             ×
@@ -172,7 +243,7 @@ export function ToolsPage() {
               API Tool
             </button>
             <button className={selectedToolType === "model" ? "active" : undefined} onClick={() => setSelectedToolType("model")} type="button">
-              模型 API
+              模型配置
             </button>
           </div>
         ) : null}
@@ -187,6 +258,14 @@ export function ToolsPage() {
                 onChange={(event) => handleModelApiChange("name", event.target.value)}
                 placeholder="例如：Qwen production"
               />
+            </label>
+            <label className="field-stack">
+              模型用途
+              <select value={modelApiForm.modelPurpose} onChange={(event) => handleModelApiChange("modelPurpose", event.target.value)}>
+                <option value="llm">推理模型</option>
+                <option value="embedding">嵌入模型</option>
+                <option value="rerank">重排模型</option>
+              </select>
             </label>
             <label className="field-stack">
               协议
@@ -207,8 +286,13 @@ export function ToolsPage() {
               />
             </label>
             <label className="field-stack">
-              模型
-              <input required value={modelApiForm.model} onChange={(event) => handleModelApiChange("model", event.target.value)} placeholder="qwen-plus" />
+              {purposeModelLabels[modelApiForm.modelPurpose]}
+              <input
+                required
+                value={modelApiForm.model}
+                onChange={(event) => handleModelApiChange("model", event.target.value)}
+                placeholder={purposeModelPlaceholders[modelApiForm.modelPurpose]}
+              />
             </label>
             <label className="field-stack">
               API Key
@@ -222,20 +306,20 @@ export function ToolsPage() {
             </label>
             <label className="check-row">
               <input checked={modelApiForm.isDefault} type="checkbox" onChange={(event) => handleModelApiChange("isDefault", event.target.checked)} />
-              设为默认模型 API
+              {defaultPurposeCheckboxLabels[modelApiForm.modelPurpose]}
             </label>
-            {modelApiError ? <p className="inline-error">模型 API 保存失败，请检查后端服务和表单内容。</p> : null}
+            {modelApiError ? <p className="inline-error">模型配置保存失败，请检查后端服务和表单内容。</p> : null}
             <div className="form-actions">
               <button className="btn" onClick={closeDialog} type="button">
                 取消
               </button>
               <button className="btn primary" disabled={isSavingModelApi} type="submit">
-                {isSavingModelApi ? "保存中..." : dialogMode === "edit" ? "保存修改" : "保存模型 API"}
+                {isSavingModelApi ? "保存中..." : dialogMode === "edit" ? "保存修改" : "保存模型配置"}
               </button>
             </div>
           </form>
         ) : (
-          <p className="inline-error">当前先开放模型 API 配置保存，{selectedToolType === "mcp" ? "MCP Server" : "API Tool"} 表单将在后续接入。</p>
+          <p className="inline-error">当前先开放模型配置保存，{selectedToolType === "mcp" ? "MCP Server" : "API Tool"} 表单将在后续接入。</p>
         )}
       </section>
     </div>
@@ -247,7 +331,7 @@ export function ToolsPage() {
     <PageScaffold
       className="tools-page"
       title="工具"
-      description="统一管理 MCP Server、API Tool 和模型 API，按类别添加与配置。"
+      description="统一管理 MCP Server、API Tool 和模型配置"
       actions={
         <button className="btn primary" onClick={openCreateDialog} type="button">
           添加工具
@@ -280,7 +364,7 @@ export function ToolsPage() {
           onClick={() => setActiveCategory("model")}
           type="button"
         >
-          模型 API <span>{modelProviders.length}</span>
+          模型配置 <span>{modelProviders.length}</span>
         </button>
       </div>
 
@@ -321,32 +405,49 @@ export function ToolsPage() {
       ) : null}
 
       {activeCategory === "model" ? (
-        <Panel title="模型 API" meta={<StatusPill tone={modelProviders.length ? "ok" : "warn"}>{modelProviders.length} 个配置</StatusPill>} strong>
+        <Panel
+          title="模型配置"
+          meta={
+            <div className="panel-meta model-provider-summary" aria-label="模型配置分类统计">
+              <StatusPill tone="info">推理 {llmCount}</StatusPill>
+              <StatusPill tone="gray">嵌入 {embeddingCount}</StatusPill>
+              <StatusPill tone="gray">重排 {rerankCount}</StatusPill>
+            </div>
+          }
+          strong
+        >
           <SimpleTable
-            columns={["名称", "协议", "Base URL", "模型", "密钥", "状态", "默认", "其它", "操作"]}
-            rows={modelProviders.map((provider) => [
-              provider.name,
-              provider.providerType,
-              provider.baseUrl,
-              provider.model,
-              provider.apiKeyPreview,
-              <StatusPill key={provider.id} tone={provider.status === "online" ? "ok" : "warn"}>
-                {provider.status}
-              </StatusPill>,
-              provider.isDefault ? "是" : "否",
-              <button
-                className="table-action"
-                disabled={testModelProvider.isPending}
-                key={`${provider.id}-test`}
-                onClick={() => testModelProvider.mutate({ id: provider.id })}
-                type="button"
-              >
-                {testModelProvider.isPending && testingProviderId === provider.id ? "测试中..." : "测试连接"}
-              </button>,
-              <button className="table-action" key={`${provider.id}-edit`} onClick={() => openEditDialog(provider)} type="button">
-                编辑
-              </button>
-            ])}
+            columns={["名称", "用途", "协议", "Base URL", "模型", "密钥", "状态", "默认", "其它", "操作"]}
+            highlightFirstRow={false}
+            rows={modelProviders.map((provider) => {
+              const purpose = normalizePurpose(provider.modelPurpose);
+              return [
+                provider.name,
+                <StatusPill key={`${provider.id}-purpose`} tone={purpose === "llm" ? "info" : "gray"}>
+                  {purposeLabels[purpose]}
+                </StatusPill>,
+                provider.providerType,
+                provider.baseUrl,
+                provider.model,
+                provider.apiKeyPreview,
+                <StatusPill key={provider.id} tone={statusTone(provider.status)}>
+                  {statusLabel(provider.status)}
+                </StatusPill>,
+                provider.isDefault ? defaultPurposeLabels[purpose] : "否",
+                <button
+                  className="table-action"
+                  disabled={testModelProvider.isPending}
+                  key={`${provider.id}-test`}
+                  onClick={() => testModelProvider.mutate({ id: provider.id })}
+                  type="button"
+                >
+                  {testModelProvider.isPending && testingProviderId === provider.id ? "测试中..." : "测试连接"}
+                </button>,
+                <button className="table-action" key={`${provider.id}-edit`} onClick={() => openEditDialog(provider)} type="button">
+                  编辑
+                </button>
+              ];
+            })}
           />
         </Panel>
       ) : null}

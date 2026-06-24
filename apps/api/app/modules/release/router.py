@@ -18,9 +18,11 @@ service = ReleaseGateService(
 
 @router.post("/api/agents/{agent_id}/release-gates/check", response_model=ReleaseGateRead)
 def check_release_gate(agent_id: str) -> ReleaseGateRead:
+    """检查指定智能体发布门禁，汇总工具、知识库和评测风险。"""
     return service.check(agent_id)
 
 
 @router.get("/api/release-gates", response_model=list[ReleaseGateRead])
 def list_release_gates() -> list[ReleaseGateRead]:
+    """查询发布门禁列表，返回默认演示智能体的当前门禁状态。"""
     return [service.check("agent-after-sale")]

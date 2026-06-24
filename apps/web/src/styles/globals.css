@@ -424,6 +424,15 @@ textarea:focus-visible {
   line-height: 1.2;
 }
 
+.panel-meta {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .panel-body {
   padding: 10px 20px 20px;
 }
@@ -432,6 +441,22 @@ textarea:focus-visible {
   min-height: 178px;
   padding: 22px;
   overflow: hidden;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  align-content: center;
+  gap: 16px;
+  text-align: center;
+  box-shadow: 0 24px 54px rgba(39, 49, 74, 0.18), 0 8px 18px rgba(39, 49, 74, 0.1);
+}
+
+.dashboard-page .metric-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  align-content: center;
+  align-items: center;
 }
 
 .metric-card.blue {
@@ -444,6 +469,12 @@ textarea:focus-visible {
 
 .metric-card.mint {
   background: linear-gradient(145deg, rgba(210, 246, 239, 0.9), rgba(239, 255, 251, 0.72));
+}
+
+.metric-copy {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
 }
 
 .metric-card span {
@@ -462,9 +493,119 @@ textarea:focus-visible {
 }
 
 .metric-card p {
-  margin: 10px 0 18px;
+  margin: 10px 0 0;
   color: var(--muted);
   font-size: 13px;
+  text-align: center;
+}
+
+.metric-visual {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  justify-self: center;
+  place-self: center;
+  flex: 0 0 auto;
+  contain: layout paint;
+}
+
+.metric-visual-agent {
+  display: grid;
+  place-items: center;
+}
+
+.metric-visual-agent b {
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  background: linear-gradient(145deg, rgba(39, 49, 74, 0.92), rgba(77, 127, 181, 0.72));
+  box-shadow: 0 16px 32px rgba(39, 49, 74, 0.22), inset 0 0 0 8px rgba(255, 255, 255, 0.16);
+}
+
+.agent-orbit {
+  position: absolute;
+  inset: 12px;
+  border: 1px solid rgba(39, 49, 74, 0.16);
+  border-radius: 999px;
+}
+
+.agent-node {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  margin: -6.5px;
+  border-radius: 999px;
+  background: #27314a;
+  box-shadow: 0 0 0 6px rgba(39, 49, 74, 0.1);
+  transform: rotate(var(--node-angle)) translateY(-40px);
+  transform-origin: center;
+}
+
+.metric-visual-rate {
+  display: grid;
+  place-items: center;
+}
+
+.metric-visual-rate svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.rate-ring-track,
+.rate-ring-value {
+  fill: none;
+  stroke-width: 10;
+}
+
+.rate-ring-track {
+  stroke: rgba(39, 49, 74, 0.12);
+}
+
+.rate-ring-value {
+  stroke: #0f9f87;
+  stroke-linecap: round;
+}
+
+.metric-visual-rate i {
+  position: absolute;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, #ffffff 0 22%, rgba(15, 159, 135, 0.28) 24% 100%);
+  box-shadow: inset 0 0 0 1px rgba(15, 159, 135, 0.24), 0 14px 28px rgba(15, 159, 135, 0.16);
+}
+
+.metric-visual-publish {
+  display: grid;
+  place-items: center;
+}
+
+.publish-pulse {
+  position: absolute;
+  width: 86px;
+  height: 86px;
+  border-radius: 28px;
+  background: linear-gradient(145deg, rgba(188, 70, 142, 0.16), rgba(255, 255, 255, 0.58));
+  box-shadow: inset 0 0 0 1px rgba(188, 70, 142, 0.16);
+}
+
+.publish-slots {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 26px);
+  gap: 10px;
+}
+
+.publish-slot {
+  width: 26px;
+  height: 32px;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #bc468e, rgba(188, 70, 142, 0.42));
+  box-shadow: 0 10px 20px rgba(188, 70, 142, 0.18);
 }
 
 .mini-bars {
@@ -689,6 +830,17 @@ tr:last-child td {
 
 tr.selected td {
   background: rgba(222, 218, 248, 0.52);
+}
+
+.tools-page td {
+  color: #27314a;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.tools-page .status-pill,
+.tools-page .table-action {
+  font-weight: 700;
 }
 
 .dashboard-run-table table {

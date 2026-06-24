@@ -68,6 +68,14 @@ def visible_text_chunks(chunks: Iterable[str]) -> Iterator[str]:
         yield buffer
 
 
+def openai_compatible_base_url(provider: ModelProviderModel) -> str:
+    """规范化 OpenAI-compatible 服务地址；用户只填服务根地址时自动补齐 /v1。"""
+    base_url = provider.base_url.rstrip("/")
+    if provider.provider_type == "openai-compatible" and not base_url.endswith("/v1"):
+        return f"{base_url}/v1"
+    return base_url
+
+
 @dataclass(frozen=True)
 class ModelInvocationResult:
     content: str
@@ -78,6 +86,7 @@ class ModelInvocationResult:
 
 class LangChainModelClient:
     def stream(self, provider: ModelProviderModel, prompt: str):
+        """以流式方式调用对话模型，并过滤不可直接展示的推理片段。"""
         yield from visible_text_chunks(self._stream_raw(provider, prompt))
 
     def _stream_raw(self, provider: ModelProviderModel, prompt: str):
@@ -96,7 +105,7 @@ class LangChainModelClient:
         model = ChatOpenAI(
             model=provider.model_name,
             api_key=provider.api_key,
-            base_url=provider.base_url,
+            base_url=openai_compatible_base_url(provider),
         )
         for chunk in model.stream(prompt):
             content = chunk.content
@@ -108,6 +117,7 @@ class LangChainModelClient:
                         yield str(block["text"])
 
     def invoke(self, provider: ModelProviderModel, prompt: str) -> ModelInvocationResult:
+        """以非流式方式调用对话模型，返回内容、延迟、成本和推理内容。"""
         if provider.base_url.startswith("mock://"):
             visible, reasoning = split_reasoning(f"[{provider.model_name}] Answer generated for: {prompt}")
             return ModelInvocationResult(
@@ -125,7 +135,7 @@ class LangChainModelClient:
         model = ChatOpenAI(
             model=provider.model_name,
             api_key=provider.api_key,
-            base_url=provider.base_url,
+            base_url=openai_compatible_base_url(provider),
         )
         response = model.invoke(prompt)
         visible, embedded_reasoning = split_reasoning(str(response.content))
@@ -137,6 +147,38 @@ class LangChainModelClient:
             cost_cny=0.0,
             reasoning_content=reasoning or embedded_reasoning,
         )
+
+    def embed(self, provider: ModelProviderModel, text: str) -> list[float]:
+        """调用 OpenAI-compatible Embeddings 接口，返回一条文本的向量结果。"""
+        if provider.base_url.startswith("mock://"):
+            return [0.1, 0.2, 0.3]
+
+        endpoint = f"{openai_compatible_base_url(provider)}/embeddings"
+        payload = {
+            "model": provider.model_name,
+            "input": text,
+        }
+        request = Request(
+            endpoint,
+            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+            headers={
+                "authorization": f"Bearer {provider.api_key}",
+                "content-type": "application/json",
+            },
+            method="POST",
+        )
+
+        try:
+            with urlopen(request, timeout=60) as response:
+                body = json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            error_body = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"Embedding request failed: HTTP {exc.code} {error_body}") from exc
+
+        embedding = body.get("data", [{}])[0].get("embedding") if isinstance(body.get("data"), list) and body.get("data") else None
+        if not isinstance(embedding, list) or not embedding:
+            raise RuntimeError("Embedding response missing embedding vector")
+        return [float(value) for value in embedding]
 
     def _invoke_anthropic_compatible(self, provider: ModelProviderModel, prompt: str) -> ModelInvocationResult:
         endpoint = f"{provider.base_url.rstrip('/')}/v1/messages"

@@ -105,6 +105,16 @@ def test_trace_repository_lists_recent_runs_with_summary_fields():
     assert recent[1].status == "failed"
 
 
+def test_trace_repository_returns_no_recent_runs_when_database_is_empty():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine, tables=[RunModel.__table__, TraceStepModel.__table__])
+    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    repo = TraceRepository(session_factory=session_factory)
+
+    assert repo.list_recent(agent_names={}) == []
+
+
 def test_run_created_at_uses_local_computer_time():
     created_at = utc_now()
     try:

@@ -10,11 +10,13 @@ repo = WorkflowRepository(session_factory=SessionLocal)
 
 @router.get("", response_model=list[WorkflowRead], response_model_by_alias=True)
 def list_workflows() -> list[WorkflowRead]:
+    """查询全部工作流配置，供工作流画布列表和智能体绑定选择使用。"""
     return repo.list()
 
 
 @router.get("/{workflow_id}", response_model=WorkflowRead, response_model_by_alias=True)
 def get_workflow(workflow_id: str) -> WorkflowRead:
+    """查询指定工作流详情；不存在时返回 404。"""
     workflow = repo.get(workflow_id)
     if workflow is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
@@ -23,6 +25,7 @@ def get_workflow(workflow_id: str) -> WorkflowRead:
 
 @router.put("/{workflow_id}", response_model=WorkflowRead, response_model_by_alias=True)
 def update_workflow(workflow_id: str, payload: WorkflowUpdate) -> WorkflowRead:
+    """更新指定工作流图配置，包含节点、连线和工具健康标记。"""
     workflow = repo.update(workflow_id, payload)
     if workflow is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
@@ -36,6 +39,7 @@ def update_workflow(workflow_id: str, payload: WorkflowUpdate) -> WorkflowRead:
     status_code=status.HTTP_201_CREATED,
 )
 def run_workflow_test(workflow_id: str, payload: WorkflowTestRequest) -> WorkflowTestRead:
+    """使用测试输入运行指定工作流，返回节点级执行结果。"""
     result = repo.run_test(workflow_id, payload.input)
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")

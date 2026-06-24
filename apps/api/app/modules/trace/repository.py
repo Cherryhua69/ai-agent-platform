@@ -49,54 +49,14 @@ class TraceRepository:
 
         return self._seed_trace(run_id)
 
-    def list_recent(self, agent_names: dict[str, str] | None = None, limit: int = 4) -> list[RecentRunRead]:
-        seed_agent_names = {
-            "agent-after-sale": "售后政策助手",
-            "agent-contract-review": "合同审阅助手",
-            "agent-data-query": "数据查询助手",
-        }
-        agent_names = {**seed_agent_names, **(agent_names or {})}
+    def list_recent(self, agent_names: dict[str, str] | None = None, limit: int = 6) -> list[RecentRunRead]:
+        agent_names = agent_names or {}
         if self._session_factory:
             with self._session_factory() as session:
                 runs = session.scalars(select(RunModel).order_by(RunModel.created_at.desc()).limit(limit)).all()
-                if runs:
-                    return [self._run_to_recent_model(run, agent_names.get(run.agent_id, run.agent_id)) for run in runs]
+                return [self._run_to_recent_model(run, agent_names.get(run.agent_id, run.agent_id)) for run in runs]
 
-        seeds = [
-            self._seed_trace("run_8f23"),
-            RunTraceRead(
-                id="run_3ac1",
-                agentId="agent-contract-review",
-                status="failed",
-                runCategory="production",
-                failureReason="引用置信度不足，等待人工复核",
-                costCny=0.12,
-                finalOutput=None,
-                steps=[],
-            ),
-            RunTraceRead(
-                id="run_922e",
-                agentId="agent-data-query",
-                status="success",
-                runCategory="test",
-                failureReason=None,
-                costCny=0.04,
-                finalOutput="权限策略已拦截敏感字段。",
-                steps=[],
-            ),
-        ]
-        return [
-            RecentRunRead(
-                id=run.id,
-                agentId=run.agent_id,
-                agentName=agent_names.get(run.agent_id, run.agent_id),
-                runTime=utc_now(),
-                failureReason=run.failure_reason or "无",
-                runCategory=run.run_category,
-                status=self._summary_status(run.status),
-            )
-            for run in seeds[:limit]
-        ]
+        return []
 
     def _step_to_model(self, run_id: str, step_order: int, step: TraceStepCreate) -> TraceStepModel:
         return TraceStepModel(

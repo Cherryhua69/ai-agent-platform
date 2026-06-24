@@ -136,7 +136,7 @@ export function AgentStudioPage({ onConfigureAgent }: AgentStudioPageProps) {
     <PageScaffold
       eyebrow="构建 / 智能体"
       title="智能体"
-      description="创建、检查和管理智能体。模型 API、知识库和调用需求在工作流画布中配置，运行结果会同步展示在这里。"
+      description="创建、检查和管理智能体。模型配置、知识库和调用需求在工作流画布中配置，运行结果会同步展示在这里。"
       actions={
         <button className="btn primary" onClick={openCreateDialog} type="button">
           创建智能体

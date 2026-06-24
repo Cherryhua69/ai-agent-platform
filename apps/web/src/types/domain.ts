@@ -3,6 +3,8 @@ export type HealthStatus = "online" | "degraded" | "offline" | "guarded";
 export type GateStatus = "passed" | "blocked" | "review_required";
 export type TraceStepStatus = "success" | "warning" | "failed" | "blocked";
 export type RunCategory = "test" | "production";
+export type ModelPurpose = "llm" | "embedding" | "rerank";
+export type ModelProviderStatus = "online" | "offline";
 
 export type Agent = {
   id: string;
@@ -84,10 +86,11 @@ export type ModelProvider = {
   id: string;
   name: string;
   providerType: "openai-compatible" | string;
+  modelPurpose: ModelPurpose;
   baseUrl: string;
   model: string;
   apiKeyPreview: string;
-  status: HealthStatus;
+  status: ModelProviderStatus;
   isDefault: boolean;
 };
 

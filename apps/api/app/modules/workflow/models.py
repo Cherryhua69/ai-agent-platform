@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import DateTime, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -7,7 +8,10 @@ from app.core.database import Base
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    try:
+        return datetime.now(ZoneInfo("Asia/Shanghai")).replace(tzinfo=None)
+    except ZoneInfoNotFoundError:
+        return datetime.now().replace(tzinfo=None)
 
 
 class WorkflowModel(Base):

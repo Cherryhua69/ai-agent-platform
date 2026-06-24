@@ -1,10 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { postJson } from "../../lib/api/client";
-import type { ModelProvider } from "../../types/domain";
+import type { ModelProvider, ModelPurpose } from "../../types/domain";
 
 export type CreateModelProviderPayload = {
   name: string;
   providerType: string;
+  modelPurpose: ModelPurpose;
   baseUrl: string;
   model: string;
   apiKey: string;

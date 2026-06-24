@@ -1,5 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DashboardPage } from "./DashboardPage";
@@ -118,7 +120,7 @@ describe("DashboardPage", () => {
       })
     );
 
-    render(<DashboardPage />, { wrapper: createWrapper() });
+    const { container } = render(<DashboardPage />, { wrapper: createWrapper() });
 
     expect(await screen.findByText("50%")).toBeInTheDocument();
     expect(screen.getByText("近 24 小时，1/2 次成功")).toBeInTheDocument();
@@ -128,5 +130,16 @@ describe("DashboardPage", () => {
     expect(screen.getByText("处理售后咨询")).toBeInTheDocument();
     expect(screen.getByText("配置中")).toBeInTheDocument();
     expect(screen.queryByText("run_8f23")).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".mini-bars")).toHaveLength(0);
+    expect(container.querySelector(".metric-visual-agent")).toBeInTheDocument();
+    expect(container.querySelector(".metric-visual-rate")).toBeInTheDocument();
+    expect(container.querySelector(".metric-visual-publish")).toBeInTheDocument();
+  });
+
+  it("总览指标卡覆盖面板 flex 布局，保证动效居中", () => {
+    const css = readFileSync(resolve(__dirname, "../../styles/globals.css"), "utf8");
+
+    expect(css).toMatch(/\.dashboard-page\s+\.metric-card\s*{[^}]*display:\s*grid;/s);
+    expect(css).toMatch(/\.dashboard-page\s+\.metric-card\s*{[^}]*justify-items:\s*center;/s);
   });
 });
