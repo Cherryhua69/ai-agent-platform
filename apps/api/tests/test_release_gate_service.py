@@ -58,7 +58,7 @@ def test_release_gate_service_aggregates_real_resource_statuses():
     assert gate.status == "blocked"
     assert "工具健康异常：create_ticket degraded" in gate.reasons
     assert "关键评测用例失败：refund-ticket-create" in gate.reasons
-    assert f"知识库索引状态未全部 ready：{knowledge_base.id} processing" in gate.reasons
+    assert f"知识库索引状态未全部 ready：{knowledge_base.id} draft" in gate.reasons
     assert "高风险权限：refund_request 需要人工确认" in gate.reasons
 
 

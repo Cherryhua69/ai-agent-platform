@@ -43,7 +43,7 @@ describe("useSimulateAgentRun", () => {
         agentId: "agent_12345678",
         userInput: "Can ORD-2048 refund?",
         modelProviderId: "model_provider_12345678",
-        knowledgeBaseIds: ["kb-after-sale"]
+        knowledgeBaseIds: ["kb-support"]
       });
     });
 
@@ -53,7 +53,7 @@ describe("useSimulateAgentRun", () => {
       body: JSON.stringify({
         userInput: "Can ORD-2048 refund?",
         modelProviderId: "model_provider_12345678",
-        knowledgeBaseIds: ["kb-after-sale"]
+        knowledgeBaseIds: ["kb-support"]
       }),
       headers: { "Content-Type": "application/json" },
       method: "POST"
@@ -84,7 +84,7 @@ describe("useSimulateAgentRun", () => {
         agentId: "agent_12345678",
         userInput: "Can ORD-2048 refund?",
         modelProviderId: "model_provider_12345678",
-        knowledgeBaseIds: ["kb-after-sale"]
+        knowledgeBaseIds: ["kb-support"]
       });
     });
 

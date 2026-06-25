@@ -20,13 +20,17 @@ def test_agent_run_uses_configured_model_provider_and_knowledge_bases():
         "/api/agents",
         json={"name": "After-sale helper", "scenario": "Answer after-sale policy questions"},
     ).json()
+    knowledge_base_ids = [
+        client.post("/api/knowledge-bases", json={"name": "After-sale policy", "source": "upload"}).json()["id"],
+        client.post("/api/knowledge-bases", json={"name": "Warranty policy", "source": "upload"}).json()["id"],
+    ]
 
     response = client.post(
         f"/api/agents/{agent['id']}/runs",
         json={
             "userInput": "Order ORD-2048 asks whether refund is allowed",
             "modelProviderId": provider["id"],
-            "knowledgeBaseIds": ["kb-after-sale", "kb-warranty"],
+            "knowledgeBaseIds": knowledge_base_ids,
         },
     )
 
@@ -39,7 +43,7 @@ def test_agent_run_uses_configured_model_provider_and_knowledge_bases():
     assert body["finalOutput"]
     assert "canvas-model" in body["finalOutput"]
     assert body["steps"][1]["title"] == "Knowledge retrieval"
-    assert "kb-after-sale" in body["steps"][1]["outputSummary"]
+    assert knowledge_base_ids[0] in body["steps"][1]["outputSummary"]
     assert body["steps"][2]["title"] == "LangChain model call"
     assert provider["id"] in body["steps"][2]["inputSummary"]
 

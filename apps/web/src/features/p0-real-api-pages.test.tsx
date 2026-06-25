@@ -45,7 +45,7 @@ describe("P0 真实 API 页面", () => {
     stubFetchByPath({
       "/api/knowledge-bases": [
         {
-          id: "kb-after-sale",
+          id: "kb-support",
           name: "售后政策库",
           source: "上传文档 + 飞书同步",
           documentCount: 128,
@@ -59,7 +59,7 @@ describe("P0 真实 API 页面", () => {
     render(<KnowledgePage />, { wrapper });
 
     await waitFor(() => expect(screen.getByText("售后政策库")).toBeInTheDocument());
-    expect(screen.getByText("Hybrid + Rerank")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开售后政策库操作菜单" })).toBeInTheDocument();
   });
 
   it("工具页面展示真实工具接口数据", async () => {

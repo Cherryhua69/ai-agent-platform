@@ -89,11 +89,15 @@ def test_agent_run_creates_queryable_trace_with_final_output():
     ).json()
 
     created = client.post(
+        "/api/knowledge-bases",
+        json={"name": "Route smoke knowledge", "source": "upload"},
+    ).json()
+    created = client.post(
         "/api/agents/agent-after-sale/runs",
         json={
             "userInput": "Order ORD-2048 asks whether refund is allowed",
             "modelProviderId": provider["id"],
-            "knowledgeBaseIds": ["kb-after-sale"],
+            "knowledgeBaseIds": [created["id"]],
         },
     )
 

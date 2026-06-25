@@ -26,7 +26,7 @@ describe("WorkflowPage", () => {
       selectedWorkflowId: "",
       selectedNodeId: "",
       modelProviderId: "",
-      knowledgeBaseIds: ["kb-after-sale"],
+      knowledgeBaseIds: [],
       userInput: "Order ORD-2048 asks whether refund is allowed",
       userFileInput: "",
       latestRun: null
@@ -108,7 +108,7 @@ describe("WorkflowPage", () => {
               status: "ready",
               modelPolicy: "local-smoke",
               workflowId: "workflow-after-sale",
-              knowledgeBaseIds: ["kb-after-sale"],
+              knowledgeBaseIds: ["kb-support"],
               toolIds: []
             }
           ]
@@ -1303,7 +1303,13 @@ describe("WorkflowPage", () => {
               toolHealthStatus: "degraded",
               nodes: [
                 { id: "node-trigger", type: "trigger", name: "User input", status: "success" },
-                { id: "node-retrieval", type: "retrieval", name: "Knowledge retrieval", status: "success" }
+                {
+                  id: "node-retrieval",
+                  type: "retrieval",
+                  name: "Knowledge retrieval",
+                  status: "success",
+                  config: { knowledgeBaseIds: ["kb-support"] }
+                }
               ]
             }
           ]
@@ -1319,7 +1325,7 @@ describe("WorkflowPage", () => {
           ok: true,
           json: async () => [
             {
-              id: "kb-after-sale",
+              id: "kb-support",
               name: "After-sale policy base",
               source: "Uploaded docs",
               documentCount: 128,
@@ -1334,6 +1340,7 @@ describe("WorkflowPage", () => {
       return { ok: false, status: 404, json: async () => ({}) };
     });
     vi.stubGlobal("fetch", fetchMock);
+    useCanvasConfig.setState({ knowledgeBaseIds: ["kb-support"] });
 
     render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
@@ -1402,7 +1409,7 @@ describe("WorkflowPage", () => {
           ok: true,
           json: async () => [
             {
-              id: "kb-after-sale",
+              id: "kb-support",
               name: "售后政策库",
               source: "上传文档",
               documentCount: 128,
@@ -1476,7 +1483,7 @@ describe("WorkflowPage", () => {
       body: JSON.stringify({
         userInput: "第一轮问题",
         modelProviderId: "model_provider_local",
-        knowledgeBaseIds: ["kb-after-sale"],
+        knowledgeBaseIds: [],
         runCategory: "test",
         conversationHistory: []
       }),
@@ -1499,7 +1506,7 @@ describe("WorkflowPage", () => {
     expect(JSON.parse(String(streamCalls[1]?.[1]?.body))).toEqual({
       userInput: "第二轮问题",
       modelProviderId: "model_provider_local",
-      knowledgeBaseIds: ["kb-after-sale"],
+      knowledgeBaseIds: [],
       runCategory: "test",
       conversationHistory: [
         { role: "user", content: "第一轮问题\n附件：order.txt、one.txt、two.txt" },

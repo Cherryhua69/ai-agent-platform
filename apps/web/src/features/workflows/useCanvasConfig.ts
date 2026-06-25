@@ -24,7 +24,7 @@ export const useCanvasConfig = create<CanvasConfigState>((set) => ({
   selectedWorkflowId: "",
   selectedNodeId: "",
   modelProviderId: "",
-  knowledgeBaseIds: ["kb-after-sale"],
+  knowledgeBaseIds: [],
   userInput: "Order ORD-2048 asks whether refund is allowed",
   userFileInput: "",
   latestRun: null,

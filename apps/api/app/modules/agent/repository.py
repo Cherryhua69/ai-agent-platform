@@ -28,7 +28,7 @@ class AgentRepository:
             status="draft",
             modelPolicy="gpt-4.1 + fallback",
             workflowId=f"flow_{agent_id}",
-            knowledgeBaseIds=["kb-after-sale", "kb-warranty"],
+            knowledgeBaseIds=[],
             toolIds=["tool-ticket", "tool-order"],
         )
 
@@ -108,7 +108,7 @@ class AgentRepository:
             status=agent.status,
             modelPolicy="gpt-4.1 + fallback",
             workflowId=f"flow_{agent.id}",
-            knowledgeBaseIds=["kb-after-sale", "kb-warranty"],
+            knowledgeBaseIds=[],
             toolIds=["tool-ticket", "tool-order"],
         )
 

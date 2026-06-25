@@ -31,7 +31,7 @@ def test_frontend_agent_contract_contains_ui_fields():
     assert body["owner"] == "陈晓"
     assert body["modelPolicy"] == "gpt-4.1 + fallback"
     assert body["workflowId"].startswith("flow_")
-    assert body["knowledgeBaseIds"] == ["kb-after-sale", "kb-warranty"]
+    assert body["knowledgeBaseIds"] == []
     assert body["toolIds"] == ["tool-ticket", "tool-order"]
 
 

@@ -5,6 +5,8 @@ export type TraceStepStatus = "success" | "warning" | "failed" | "blocked";
 export type RunCategory = "test" | "production";
 export type ModelPurpose = "llm" | "embedding" | "rerank";
 export type ModelProviderStatus = "online" | "offline";
+export type KnowledgeChunkStrategy = "fixed" | "markdown" | "semantic";
+export type KnowledgeRetrievalMode = "vector" | "hybrid";
 
 export type Agent = {
   id: string;
@@ -65,11 +67,33 @@ export type Workflow = {
 export type KnowledgeBase = {
   id: string;
   name: string;
+  description?: string | null;
   source: string;
+  embeddingModelProviderId?: string | null;
+  embeddingModelProviderName?: string | null;
+  chunkStrategy: KnowledgeChunkStrategy;
+  chunkSize: number;
+  chunkOverlap: number;
+  retrievalMode: KnowledgeRetrievalMode;
+  topK: number;
+  similarityThreshold: number;
+  returnCitations: boolean;
   documentCount: number;
   retrievalStrategy: string;
   qualityScore: number;
-  status: "ready" | "stale" | "processing";
+  status: "ready" | "stale" | "processing" | "draft";
+};
+
+export type KnowledgeDocument = {
+  id: string;
+  name: string;
+  mimeType: string;
+  sizeKb: number;
+  status: string;
+  segmentMode?: string;
+  characterCount?: number;
+  hitCount?: number;
+  createdAt?: string | null;
 };
 
 export type Tool = {

@@ -25,7 +25,7 @@ const listedAgent = {
   status: "blocked",
   modelPolicy: "gpt-4.1 + fallback",
   workflowId: "workflow-after-sale",
-  knowledgeBaseIds: ["kb-after-sale", "kb-warranty"],
+  knowledgeBaseIds: ["kb-support", "kb-policy"],
   toolIds: ["tool-create-ticket"]
 };
 
@@ -44,7 +44,7 @@ describe("AgentStudioPage", () => {
     vi.unstubAllGlobals();
     useCanvasConfig.setState({
       modelProviderId: "",
-      knowledgeBaseIds: ["kb-after-sale"],
+      knowledgeBaseIds: ["kb-support"],
       userInput: "Order ORD-2048 asks whether refund is allowed",
       latestRun: null
     });

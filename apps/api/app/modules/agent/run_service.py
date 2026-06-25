@@ -52,7 +52,7 @@ class AgentRunService:
         request.run_category = request.run_category or "test"
 
         provider = self._model_providers.get(request.model_provider_id) if self._model_providers else None
-        knowledge_ids = request.knowledge_base_ids or ["kb-after-sale"]
+        knowledge_ids = request.knowledge_base_ids or []
 
         if provider is None:
             return self._traces.create_run(
@@ -348,6 +348,8 @@ class AgentRunService:
         )
 
     def _build_retrieval_summary(self, query: str, knowledge_base_ids: list[str]) -> str:
+        if not knowledge_base_ids:
+            return "未绑定知识库。"
         if not self._knowledge:
             return f"{', '.join(knowledge_base_ids)} matched local policy context."
 

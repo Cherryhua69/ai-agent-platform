@@ -30,7 +30,7 @@ describe("useCreateAgent", () => {
         status: "draft",
         modelPolicy: "gpt-4.1 + fallback",
         workflowId: "flow_agent_12345678",
-        knowledgeBaseIds: ["kb-after-sale", "kb-warranty"],
+        knowledgeBaseIds: ["kb-support", "kb-policy"],
         toolIds: ["tool-ticket", "tool-order"]
       })
     });

@@ -19,6 +19,7 @@ def init_database() -> None:
     Base.metadata.create_all(bind=engine)
     _ensure_run_summary_columns()
     _ensure_model_provider_columns()
+    _ensure_knowledge_base_columns()
 
 
 def _ensure_run_summary_columns() -> None:
@@ -54,3 +55,41 @@ def _ensure_model_provider_columns() -> None:
 
     with engine.begin() as connection:
         connection.execute(text("ALTER TABLE model_providers ADD COLUMN model_purpose VARCHAR(32) NOT NULL DEFAULT 'llm'"))
+
+
+def _ensure_knowledge_base_columns() -> None:
+    inspector = inspect(engine)
+    if not inspector.has_table("knowledge_bases"):
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("knowledge_bases")}
+    statements: list[str] = []
+    if "description" not in columns:
+        statements.append("ALTER TABLE knowledge_bases ADD COLUMN description TEXT NULL")
+    if "embedding_model_provider_id" not in columns:
+        statements.append("ALTER TABLE knowledge_bases ADD COLUMN embedding_model_provider_id VARCHAR(64) NULL")
+    if "chunk_strategy" not in columns:
+        statements.append("ALTER TABLE knowledge_bases ADD COLUMN chunk_strategy VARCHAR(32) NOT NULL DEFAULT 'fixed'")
+    if "chunk_size" not in columns:
+        statements.append("ALTER TABLE knowledge_bases ADD COLUMN chunk_size INTEGER NOT NULL DEFAULT 500")
+    if "chunk_overlap" not in columns:
+        statements.append("ALTER TABLE knowledge_bases ADD COLUMN chunk_overlap INTEGER NOT NULL DEFAULT 50")
+    if "retrieval_mode" not in columns:
+        statements.append("ALTER TABLE knowledge_bases ADD COLUMN retrieval_mode VARCHAR(32) NOT NULL DEFAULT 'vector'")
+    if "top_k" not in columns:
+        statements.append("ALTER TABLE knowledge_bases ADD COLUMN top_k INTEGER NOT NULL DEFAULT 5")
+    if "similarity_threshold" not in columns:
+        statements.append("ALTER TABLE knowledge_bases ADD COLUMN similarity_threshold FLOAT NOT NULL DEFAULT 0.7")
+    if "return_citations" not in columns:
+        statements.append("ALTER TABLE knowledge_bases ADD COLUMN return_citations BOOLEAN NOT NULL DEFAULT 1")
+    if "updated_at" not in columns:
+        statements.append("ALTER TABLE knowledge_bases ADD COLUMN updated_at DATETIME NULL")
+
+    if not statements:
+        return
+
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+        if "updated_at" not in columns:
+            connection.execute(text("UPDATE knowledge_bases SET updated_at = created_at WHERE updated_at IS NULL"))
