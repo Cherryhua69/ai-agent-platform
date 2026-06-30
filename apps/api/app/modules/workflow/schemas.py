@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -55,3 +57,7 @@ class WorkflowTestRead(BaseModel):
     status: str
     input: str
     output: str
+    final_output: dict[str, Any] = Field(default_factory=dict, alias="finalOutput")
+    trace_steps: list[dict[str, Any]] = Field(default_factory=list, alias="traceSteps")
+    node_outputs: dict[str, dict[str, Any]] = Field(default_factory=dict, alias="nodeOutputs")
+    error_message: str | None = Field(default=None, alias="errorMessage")

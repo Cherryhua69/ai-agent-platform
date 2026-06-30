@@ -24,6 +24,19 @@ export async function postJson<TResponse, TPayload extends object>(url: string, 
   return response.json() as Promise<TResponse>;
 }
 
+export async function postFormData<TResponse>(url: string, payload: FormData): Promise<TResponse> {
+  const response = await fetch(`${apiBaseUrl}${url}`, {
+    body: payload,
+    method: "POST"
+  });
+
+  if (!response.ok) {
+    throw new Error(`请求失败：${response.status}`);
+  }
+
+  return response.json() as Promise<TResponse>;
+}
+
 export async function putJson<TResponse, TPayload extends object>(url: string, payload: TPayload): Promise<TResponse> {
   const response = await fetch(`${apiBaseUrl}${url}`, {
     body: JSON.stringify(payload),

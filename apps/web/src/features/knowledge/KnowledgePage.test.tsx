@@ -15,6 +15,8 @@ function wrapper({ children }: { children: ReactNode }) {
 describe("KnowledgePage", () => {
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -156,21 +158,411 @@ describe("KnowledgePage", () => {
     expect(screen.getByText("17.2k")).toBeInTheDocument();
     expect(screen.getByText("6")).toBeInTheDocument();
     expect(screen.getByText("2026-06-16 04:32")).toBeInTheDocument();
-    expect(screen.getByText("可用")).toBeInTheDocument();
+    expect(screen.getByText("待处理")).toBeInTheDocument();
+  });
+
+  it("shows failed document error and can trigger reprocessing", async () => {
+    const processingJobs: string[] = [];
+    stubKnowledgeFetch({
+      knowledgeBases: [knowledgeBase({ id: "kb_support", name: "Support KB", description: "Support docs" })],
+      documents: [
+        {
+          id: "doc_failed",
+          name: "failed-policy.txt",
+          mimeType: "text/plain",
+          sizeKb: 1,
+          status: "failed",
+          segmentMode: "通用",
+          characterCount: 128,
+          hitCount: 0,
+          errorMessage: "embedding backend unavailable",
+          createdAt: "2026-06-16 04:32"
+        }
+      ],
+      onProcessingJob: (id) => processingJobs.push(id)
+    });
+
+    render(<KnowledgePage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole("article", { name: "Support KB" }));
+
+    expect(await screen.findByText("failed-policy.txt")).toBeInTheDocument();
+    expect(screen.getByText("处理失败")).toBeInTheDocument();
+    expect(screen.getByText("embedding backend unavailable")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重新处理" }));
+
+    await waitFor(() => expect(processingJobs).toEqual(["kb_support"]));
+  });
+
+  it("shows uploaded documents as pending and can start processing before segment preview", async () => {
+    const processingJobs: string[] = [];
+    stubKnowledgeFetch({
+      knowledgeBases: [knowledgeBase({ id: "kb_support", name: "Support KB", description: "Support docs" })],
+      documents: [
+        {
+          id: "doc_uploaded",
+          name: "uploaded-policy.txt",
+          mimeType: "text/plain",
+          sizeKb: 1,
+          status: "uploaded",
+          segmentMode: "通用",
+          characterCount: 128,
+          hitCount: 0,
+          createdAt: "2026-06-16 04:32"
+        }
+      ],
+      onProcessingJob: (id) => processingJobs.push(id)
+    });
+
+    render(<KnowledgePage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole("article", { name: "Support KB" }));
+
+    expect(await screen.findByText("uploaded-policy.txt")).toBeInTheDocument();
+    expect(screen.getByText("待处理")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "处理文档" }));
+
+    await waitFor(() => expect(processingJobs).toEqual(["kb_support"]));
+  });
+
+  it("deletes a document from knowledge base detail", async () => {
+    const deletedDocuments: string[] = [];
+    const documents = [
+      {
+        id: "doc_policy",
+        name: "policy.txt",
+        mimeType: "text/plain",
+        sizeKb: 1,
+        status: "available",
+        segmentMode: "通用",
+        characterCount: 128,
+        hitCount: 0,
+        createdAt: "2026-06-16 04:32"
+      }
+    ];
+    stubKnowledgeFetch({
+      knowledgeBases: [knowledgeBase({ id: "kb_support", name: "Support KB", description: "Support docs" })],
+      documents,
+      onDeleteDocument: (_knowledgeBaseId, documentId) => {
+        deletedDocuments.push(documentId);
+        documents.splice(0, documents.length);
+      }
+    });
+
+    render(<KnowledgePage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole("article", { name: "Support KB" }));
+    fireEvent.click(await screen.findByRole("button", { name: "删除文档 policy.txt" }));
+
+    await waitFor(() => expect(deletedDocuments).toEqual(["doc_policy"]));
+  });
+
+  it("uploads a text file from document detail and starts processing", async () => {
+    const uploadedFiles: string[] = [];
+    const processingJobs: string[] = [];
+    stubKnowledgeFetch({
+      knowledgeBases: [knowledgeBase({ id: "kb_support", name: "Support KB", description: "Support docs" })],
+      onUploadDocument: (_id, file) => uploadedFiles.push(file.name),
+      onProcessingJob: (id) => processingJobs.push(id)
+    });
+
+    render(<KnowledgePage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole("article", { name: "Support KB" }));
+    const file = new File(["Refund policy upload content"], "policy.txt", { type: "text/plain" });
+    fireEvent.change(screen.getByLabelText("上传知识库文件"), { target: { files: [file] } });
+
+    await waitFor(() => expect(uploadedFiles).toEqual(["policy.txt"]));
+    await waitFor(() => expect(processingJobs).toEqual(["kb_support"]));
+  });
+
+  it("accepts pdf uploads from document detail", async () => {
+    const uploadedFiles: string[] = [];
+    const processingJobs: string[] = [];
+    stubKnowledgeFetch({
+      knowledgeBases: [knowledgeBase({ id: "kb_support", name: "Support KB", description: "Support docs" })],
+      onUploadDocument: (_id, file) => uploadedFiles.push(file.name),
+      onProcessingJob: (id) => processingJobs.push(id)
+    });
+
+    render(<KnowledgePage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole("article", { name: "Support KB" }));
+    expect(screen.getByLabelText("上传知识库文件")).toHaveAttribute("accept", expect.stringContaining(".pdf"));
+    const file = new File(["%PDF-1.4"], "policy.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText("上传知识库文件"), { target: { files: [file] } });
+
+    await waitFor(() => expect(uploadedFiles).toEqual(["policy.pdf"]));
+    await waitFor(() => expect(processingJobs).toEqual(["kb_support"]));
+  });
+
+  it("shows the latest processing job status in document detail", async () => {
+    stubKnowledgeFetch({
+      knowledgeBases: [knowledgeBase({ id: "kb_support", name: "Support KB", description: "Support docs" })],
+      processingJobs: [
+        {
+          id: "job_latest",
+          knowledgeBaseId: "kb_support",
+          status: "failed",
+          chunksCreated: 0,
+          errorMessage: "embedding backend unavailable",
+          createdAt: "2026-06-16 04:30",
+          startedAt: "2026-06-16 04:31",
+          finishedAt: "2026-06-16 04:32"
+        }
+      ]
+    });
+
+    render(<KnowledgePage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole("article", { name: "Support KB" }));
+
+    expect(await screen.findByText("最近处理：处理失败")).toBeInTheDocument();
+    expect(screen.getByText("完成时间 2026-06-16 04:32")).toBeInTheDocument();
+    expect(screen.getByText("embedding backend unavailable")).toBeInTheDocument();
+  });
+
+  it("shows document segment preview after selecting a document", async () => {
+    stubKnowledgeFetch({
+      knowledgeBases: [knowledgeBase({ id: "kb_support", name: "Support KB", description: "Support docs" })],
+      documents: [
+        {
+          id: "doc_policy",
+          name: "policy.txt",
+          mimeType: "text/plain",
+          sizeKb: 1,
+          status: "available",
+          segmentMode: "通用",
+          characterCount: 128,
+          hitCount: 0,
+          createdAt: "2026-06-16 04:32"
+        }
+      ],
+      segments: [
+        {
+          id: "seg_1",
+          knowledgeBaseId: "kb_support",
+          documentId: "doc_policy",
+          position: 1,
+          content: "Refund policy requires status verification before issuing payment.",
+          characterCount: 63,
+          tokenCount: 8,
+          status: "available"
+        }
+      ]
+    });
+
+    render(<KnowledgePage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole("article", { name: "Support KB" }));
+    fireEvent.click(await screen.findByRole("button", { name: "查看分段 policy.txt" }));
+
+    const preview = await screen.findByLabelText("分段预览");
+    expect(within(preview).getByText("分段预览")).toBeInTheDocument();
+    expect(within(preview).getByText("policy.txt")).toBeInTheDocument();
+    expect(await within(preview).findByText("#1")).toBeInTheDocument();
+    expect(within(preview).getByText("8 tokens")).toBeInTheDocument();
+    expect(within(preview).getByText("Refund policy requires status verification before issuing payment.")).toBeInTheDocument();
+  });
+
+  it("runs a knowledge retrieval test and shows matches with citations", async () => {
+    const searchQueries: string[] = [];
+    stubKnowledgeFetch({
+      knowledgeBases: [knowledgeBase({ id: "kb_support", name: "Support KB", description: "Support docs" })],
+      searchResponse: {
+        query: "refund",
+        matches: [
+          {
+            segmentId: "seg_1",
+            documentId: "doc_policy",
+            documentName: "policy.txt",
+            content: "Refund policy requires status verification before issuing payment.",
+            text: "Refund policy requires status verification before issuing payment.",
+            position: 1,
+            score: 0.86,
+            metadata: { retriever: "local_keyword" }
+          }
+        ],
+        citations: [
+          {
+            segmentId: "seg_1",
+            documentId: "doc_policy",
+            documentName: "policy.txt",
+            snippet: "Refund policy requires status verification before issuing payment.",
+            position: 1
+          }
+        ]
+      },
+      onSearch: (_knowledgeBaseId, query) => searchQueries.push(query)
+    });
+
+    render(<KnowledgePage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole("article", { name: "Support KB" }));
+    fireEvent.change(await screen.findByLabelText("检索问题"), { target: { value: "refund" } });
+    fireEvent.click(screen.getByRole("button", { name: "检索测试" }));
+
+    await waitFor(() => expect(searchQueries).toEqual(["refund"]));
+    const searchPanel = await screen.findByLabelText("检索测试结果");
+    expect(within(searchPanel).getByText("policy.txt")).toBeInTheDocument();
+    expect(within(searchPanel).getByText("#1")).toBeInTheDocument();
+    expect(within(searchPanel).getByText("相似度 0.86")).toBeInTheDocument();
+    expect(within(searchPanel).getByText("local_keyword")).toBeInTheDocument();
+    expect(within(searchPanel).getByText("Refund policy requires status verification before issuing payment.")).toBeInTheDocument();
+    expect(within(searchPanel).getByText("引用来源")).toBeInTheDocument();
+  });
+
+  it("shows an empty state when retrieval has no matches", async () => {
+    stubKnowledgeFetch({
+      knowledgeBases: [knowledgeBase({ id: "kb_support", name: "Support KB", description: "Support docs" })],
+      searchResponse: { query: "unknown", matches: [], citations: [] }
+    });
+
+    render(<KnowledgePage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole("article", { name: "Support KB" }));
+    fireEvent.change(await screen.findByLabelText("检索问题"), { target: { value: "unknown" } });
+    fireEvent.click(screen.getByRole("button", { name: "检索测试" }));
+
+    expect(await screen.findByText("未命中相关分段，请检查文档是否已处理，或调整 TopK / 相似度阈值。")).toBeInTheDocument();
+  });
+
+  it("generates a RAG answer with citations from knowledge detail", async () => {
+    const answerQueries: string[] = [];
+    stubKnowledgeFetch({
+      knowledgeBases: [knowledgeBase({ id: "kb_support", name: "Support KB", description: "Support docs" })],
+      answerResponse: {
+        query: "refund policy",
+        answer: "退款前需要先核验订单状态。[1]",
+        modelProviderId: "model_llm",
+        modelProviderName: "Mock Answer LLM",
+        matches: [],
+        citations: [
+          {
+            segmentId: "seg_1",
+            documentId: "doc_policy",
+            documentName: "policy.txt",
+            snippet: "Refund policy requires status verification.",
+            position: 1
+          }
+        ]
+      },
+      onAnswer: (_knowledgeBaseId, query) => answerQueries.push(query)
+    });
+
+    render(<KnowledgePage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole("article", { name: "Support KB" }));
+    fireEvent.change(await screen.findByLabelText("检索问题"), { target: { value: "refund policy" } });
+    fireEvent.click(screen.getByRole("button", { name: "生成回答" }));
+
+    await waitFor(() => expect(answerQueries).toEqual(["refund policy"]));
+    const answerPanel = await screen.findByLabelText("RAG 回答结果");
+    expect(within(answerPanel).getByText("Mock Answer LLM")).toBeInTheDocument();
+    expect(within(answerPanel).getByText("退款前需要先核验订单状态。[1]")).toBeInTheDocument();
+    expect(within(answerPanel).getByText("policy.txt #1")).toBeInTheDocument();
+  });
+
+  it("streams a RAG answer and shows the trace run id", async () => {
+    stubKnowledgeFetch({
+      knowledgeBases: [knowledgeBase({ id: "kb_support", name: "Support KB", description: "Support docs" })],
+      streamAnswerEvents: [
+        { type: "retrieval_started", runId: "rag_stream", query: "refund policy" },
+        { type: "retrieval_completed", runId: "rag_stream", matchCount: 1, citations: [] },
+        { type: "answer_delta", runId: "rag_stream", text: "退款前" },
+        { type: "answer_delta", runId: "rag_stream", text: "需要核验订单状态。" },
+        {
+          type: "completed",
+          runId: "rag_stream",
+          answer: "退款前需要核验订单状态。",
+          citations: [
+            {
+              segmentId: "seg_1",
+              documentId: "doc_policy",
+              documentName: "policy.txt",
+              snippet: "Refund policy requires status verification.",
+              position: 1
+            }
+          ]
+        }
+      ]
+    });
+
+    render(<KnowledgePage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole("article", { name: "Support KB" }));
+    fireEvent.change(await screen.findByLabelText("检索问题"), { target: { value: "refund policy" } });
+    fireEvent.click(screen.getByRole("button", { name: "流式回答" }));
+
+    const answerPanel = await screen.findByLabelText("RAG 回答结果");
+    expect(await within(answerPanel).findByText("退款前需要核验订单状态。")).toBeInTheDocument();
+    expect(within(answerPanel).getByText("Trace rag_stream")).toBeInTheDocument();
+    expect(within(answerPanel).getByText("policy.txt #1")).toBeInTheDocument();
+  });
+
+  it("polls processing jobs while the latest job is queued or running", async () => {
+    const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
+    const processingJobRequests: number[] = [];
+    stubKnowledgeFetch({
+      knowledgeBases: [knowledgeBase({ id: "kb_support", name: "Support KB", description: "Support docs" })],
+      processingJobs: [
+        {
+          id: "job_running",
+          knowledgeBaseId: "kb_support",
+          status: "running",
+          chunksCreated: 0,
+          createdAt: "2026-06-16 04:30",
+          startedAt: "2026-06-16 04:31",
+          finishedAt: null
+        }
+      ],
+      onProcessingJobsRequest: () => processingJobRequests.push(Date.now())
+    });
+
+    render(<KnowledgePage />, { wrapper });
+    fireEvent.click(await screen.findByRole("article", { name: "Support KB" }));
+    expect(await screen.findByText("最近处理：处理中")).toBeInTheDocument();
+
+    await waitFor(() =>
+      expect(setIntervalSpy.mock.calls.some(([, timeout]) => timeout === 3000)).toBe(true)
+    );
+    expect(processingJobRequests.length).toBeGreaterThan(0);
   });
 });
 
 function stubKnowledgeFetch({
   knowledgeBases,
   documents = [],
+  processingJobs = [],
+  segments = [],
+  searchResponse = { query: "", matches: [], citations: [] },
+  answerResponse = { query: "", answer: "", matches: [], citations: [], modelProviderId: "", modelProviderName: "" },
+  streamAnswerEvents = [],
   onUpdate,
   onDelete,
+  onProcessingJob,
+  onProcessingJobsRequest,
+  onUploadDocument,
+  onDeleteDocument,
+  onSearch,
+  onAnswer,
   deleteStatus = 204
 }: {
   knowledgeBases: Array<Record<string, unknown>>;
   documents?: Array<Record<string, unknown>>;
+  processingJobs?: Array<Record<string, unknown>>;
+  segments?: Array<Record<string, unknown>>;
+  searchResponse?: Record<string, unknown>;
+  answerResponse?: Record<string, unknown>;
+  streamAnswerEvents?: Array<Record<string, unknown>>;
   onUpdate?: (payload: Record<string, unknown>) => void;
   onDelete?: (id: string) => void;
+  onProcessingJob?: (id: string) => void;
+  onProcessingJobsRequest?: () => void;
+  onUploadDocument?: (id: string, file: File) => void;
+  onDeleteDocument?: (knowledgeBaseId: string, documentId: string) => void;
+  onSearch?: (knowledgeBaseId: string, query: string) => void;
+  onAnswer?: (knowledgeBaseId: string, query: string) => void;
   deleteStatus?: number;
 }) {
   vi.stubGlobal(
@@ -179,6 +571,53 @@ function stubKnowledgeFetch({
       const path = String(input);
       if (/\/api\/knowledge-bases\/[^/]+\/documents$/.test(path)) {
         return jsonResponse(documents);
+      }
+      if (/\/api\/knowledge-bases\/[^/]+\/documents\/[^/]+\/segments$/.test(path)) {
+        return jsonResponse(segments);
+      }
+      if (/\/api\/knowledge-bases\/[^/]+\/search$/.test(path) && init?.method === "POST") {
+        const payload = JSON.parse(String(init.body));
+        onSearch?.(path.split("/").at(-2) ?? "", payload.query);
+        return jsonResponse(searchResponse);
+      }
+      if (/\/api\/knowledge-bases\/[^/]+\/answer$/.test(path) && init?.method === "POST") {
+        const payload = JSON.parse(String(init.body));
+        onAnswer?.(path.split("/").at(-2) ?? "", payload.query);
+        return jsonResponse(answerResponse);
+      }
+      if (/\/api\/knowledge-bases\/[^/]+\/answer\/stream$/.test(path) && init?.method === "POST") {
+        const body = streamAnswerEvents.map((event) => JSON.stringify(event)).join("\n") + "\n";
+        return new Response(body, { headers: { "Content-Type": "application/x-ndjson" } });
+      }
+      if (/\/api\/knowledge-bases\/[^/]+\/documents\/[^/]+$/.test(path) && init?.method === "DELETE") {
+        const parts = path.split("/");
+        onDeleteDocument?.(parts.at(-3) ?? "", parts.at(-1) ?? "");
+        return new Response(null, { status: 204 });
+      }
+      if (/\/api\/knowledge-bases\/[^/]+\/processing-jobs$/.test(path) && (!init?.method || init.method === "GET")) {
+        onProcessingJobsRequest?.();
+        return jsonResponse(processingJobs);
+      }
+      if (/\/api\/knowledge-bases\/[^/]+\/processing-jobs$/.test(path) && init?.method === "POST") {
+        const knowledgeBaseId = path.split("/").at(-2) ?? "";
+        onProcessingJob?.(knowledgeBaseId);
+        return jsonResponse({ id: "job_test", knowledgeBaseId, status: "queued", chunksCreated: 0 });
+      }
+      if (/\/api\/knowledge-bases\/[^/]+\/documents\/upload$/.test(path) && init?.method === "POST") {
+        const knowledgeBaseId = path.split("/").at(-3) ?? "";
+        const formData = init.body as FormData;
+        const file = formData.get("file") as File;
+        onUploadDocument?.(knowledgeBaseId, file);
+        return jsonResponse({
+          id: "doc_uploaded",
+          name: file.name,
+          mimeType: file.type,
+          sizeKb: 1,
+          status: "uploaded",
+          characterCount: 28,
+          hitCount: 0,
+          errorMessage: null
+        });
       }
       if (/\/api\/knowledge-bases\/[^/]+$/.test(path) && init?.method === "DELETE") {
         if (deleteStatus === 204) {

@@ -47,9 +47,17 @@ class FakeModelClient:
 class FakeKnowledgeRepository:
     def __init__(self) -> None:
         self.query = None
+        self.knowledge_base_id = None
+        self.top_k = None
+        self.similarity_threshold = None
+        self.return_citations = None
 
-    def search(self, query):
+    def search(self, query, knowledge_base_id=None, top_k=None, similarity_threshold=None, return_citations=None):
         self.query = query
+        self.knowledge_base_id = knowledge_base_id
+        self.top_k = top_k
+        self.similarity_threshold = similarity_threshold
+        self.return_citations = return_citations
         return {"matches": [{"text": "知识片段", "score": 0.9}]}
 
 
@@ -127,12 +135,26 @@ def test_trigger_and_retrieval_handlers_write_expected_state() -> None:
         node("trigger", "trigger", {"inputFields": [{"name": "question"}]})
     )(state)
     retrieval_update = current_registry.build_handler(
-        node("search", "retrieval", {"queryVariable": "question"})
+        node(
+            "search",
+            "retrieval",
+            {
+                "queryVariable": "question",
+                "knowledgeBaseId": "kb-support",
+                "topK": 3,
+                "similarityThreshold": 0.42,
+                "returnCitations": False,
+            },
+        )
     )(state)
 
     assert trigger_update["inputs"] == {"question": "退款规则"}
     assert retrieval_update["node_outputs"] == {"search": {"result": {"matches": [{"text": "知识片段", "score": 0.9}]}}}
     assert knowledge_repository.query == "退款规则"
+    assert knowledge_repository.knowledge_base_id == "kb-support"
+    assert knowledge_repository.top_k == 3
+    assert knowledge_repository.similarity_threshold == 0.42
+    assert knowledge_repository.return_citations is False
 
 
 def test_llm_handler_builds_prompt_and_normalizes_result() -> None:
@@ -171,6 +193,54 @@ def test_llm_handler_builds_prompt_and_normalizes_result() -> None:
         "reasoning_content": "思考过程",
         "usage": {"total_tokens": 8},
     }
+
+
+def test_llm_handler_formats_retrieval_result_context_for_prompt() -> None:
+    current_registry, _, model_client, _ = registry()
+    handler = current_registry.build_handler(
+        node(
+            "answer",
+            "llm",
+            {
+                "modelProviderId": "provider-1",
+                "contextVariables": ["search.result"],
+                "userPrompt": "请基于知识库回答用户问题",
+            },
+        )
+    )
+    state = {
+        "inputs": {"question": "退款规则"},
+        "node_outputs": {
+            "search": {
+                "result": {
+                    "query": "退款规则",
+                    "matches": [
+                        {
+                            "documentName": "售后政策.pdf",
+                            "content": "退款前需要校验订单状态。",
+                            "score": 0.87,
+                            "position": 2,
+                        }
+                    ],
+                    "citations": [
+                        {
+                            "documentName": "售后政策.pdf",
+                            "snippet": "退款前需要校验订单状态。",
+                            "position": 2,
+                        }
+                    ],
+                }
+            }
+        },
+    }
+
+    handler(state)
+
+    assert "search.result:" in model_client.prompt
+    assert "检索结果" in model_client.prompt
+    assert "售后政策.pdf" in model_client.prompt
+    assert "退款前需要校验订单状态。" in model_client.prompt
+    assert '"matches"' not in model_client.prompt
 
 
 def test_expose_handler_maps_declared_outputs() -> None:
@@ -376,7 +446,7 @@ def test_loop_marks_warning_when_limit_reached_even_if_condition_turns_false() -
 def test_handler_wraps_node_failure_with_failed_trace() -> None:
     current_registry, _, _, knowledge_repository = registry()
 
-    def fail(_query):
+    def fail(_query, knowledge_base_id=None, top_k=None, similarity_threshold=None, return_citations=None):
         raise RuntimeError("检索服务不可用")
 
     knowledge_repository.search = fail

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent, type PointerEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Bot, FileInput, FileOutput, Hand, Home, MessageSquarePlus, MousePointer2, Plus, RotateCcw, Sparkles, X } from "lucide-react";
+import { ArrowLeft, Bot, FileInput, FileOutput, Hand, Home, MessageSquarePlus, MousePointer2, Plus, RotateCcw, Search, Sparkles, X } from "lucide-react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import {
@@ -21,12 +21,12 @@ import {
   type ReactFlowInstance
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import type { Agent, KnowledgeBase, ModelProvider, RunTrace, Workflow, WorkflowEdge, WorkflowInputField, WorkflowNode } from "../../types/domain";
+import type { Agent, KnowledgeBase, ModelProvider, RunTrace, TraceStepStatus, Workflow, WorkflowEdge, WorkflowInputField, WorkflowNode, WorkflowTestResult } from "../../types/domain";
 import { useAgents } from "../agents/useAgents";
-import { streamAgentRun } from "../agents/streamAgentRun";
 import { useKnowledgeBases } from "../knowledge/useKnowledgeBases";
 import { KeyValueList } from "../shared/ViewBlocks";
 import { useModelProviders } from "../tools/useModelProviders";
+import { runWorkflowTest } from "./runWorkflowTest";
 import { useCanvasConfig } from "./useCanvasConfig";
 import { useUpdateWorkflow } from "./useUpdateWorkflow";
 import { useWorkflows } from "./useWorkflows";
@@ -77,7 +77,7 @@ const LLM_DESCRIPTION = "AI 基于检索到的知识库内容结合用户问题�
 const defaultUserInputNode = fallbackNodes[0];
 
 type CanvasMode = "select" | "pan";
-type PendingPlacement = "llm" | "comment" | "expose" | "condition" | "loop" | null;
+type PendingPlacement = "llm" | "retrieval" | "comment" | "expose" | "condition" | "loop" | null;
 type PreviewMessage = { id: string; role: "user" | "assistant" | "error"; content: string };
 type PreviewDebugInfo = {
   runId: string;
@@ -93,6 +93,14 @@ type BranchNodeConfig = {
   compareValue: string;
   defaultBranch?: string;
   maxIterations?: number;
+};
+
+type RetrievalNodeConfig = {
+  knowledgeBaseId: string;
+  queryVariable: string;
+  topK: number;
+  similarityThreshold: number;
+  returnCitations: boolean;
 };
 
 function getNodeTone(status: WorkflowNode["status"]) {
@@ -167,11 +175,65 @@ function getNodeTypeLabel(type: WorkflowNode["type"]) {
 }
 
 function getRunStatus(node: WorkflowNode, latestRun: RunTrace | null) {
-  return latestRun?.steps.find((step) => step.type === node.type || step.title === node.name)?.status ?? node.status;
+  return latestRun?.steps.find((step) => step.id === node.id || step.type === node.type || step.title === node.name)?.status ?? node.status;
 }
 
 function readString(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
+}
+
+function stringifyPreviewOutput(value: unknown) {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value == null) {
+    return "";
+  }
+  return JSON.stringify(value, null, 2);
+}
+
+function summarizeWorkflowStepOutput(step: Record<string, unknown>, nodeOutput?: Record<string, unknown>) {
+  if (step.node_type === "retrieval") {
+    const result = nodeOutput?.result;
+    const matches = typeof result === "object" && result !== null && Array.isArray((result as { matches?: unknown }).matches)
+      ? (result as { matches: unknown[] }).matches.length
+      : 0;
+    return `命中 ${matches} 条知识片段`;
+  }
+  if (step.node_type === "llm" && typeof nodeOutput?.text === "string") {
+    return nodeOutput.text.slice(0, 80);
+  }
+  return undefined;
+}
+
+function buildRunTraceFromWorkflowTest(result: WorkflowTestResult, workflow: Workflow, nodes: WorkflowNode[]): RunTrace {
+  const nodeById = Object.fromEntries(nodes.map((node) => [node.id, node]));
+  const steps = result.traceSteps.map((step, index) => {
+    const nodeId = typeof step.node_id === "string" ? step.node_id : `step-${index}`;
+    const nodeType = typeof step.node_type === "string" ? step.node_type : "tool";
+    const node = nodeById[nodeId];
+    const failed = step.status === "failed" || (result.status === "failed" && index === result.traceSteps.length - 1);
+    return {
+      id: nodeId,
+      type: (node?.type ?? nodeType) as WorkflowNode["type"],
+      title: node?.name ?? nodeId,
+      status: (failed ? "failed" : "success") as TraceStepStatus,
+      latencyMs: 0,
+      outputSummary: summarizeWorkflowStepOutput(step, result.nodeOutputs[nodeId]),
+      errorMessage: typeof step.message === "string" ? step.message : undefined
+    };
+  });
+
+  return {
+    id: result.id,
+    agentId: workflow.agentId,
+    status: result.status === "success" ? "success" : "failed",
+    runCategory: "test",
+    failureReason: result.errorMessage ?? undefined,
+    costCny: 0,
+    finalOutput: result.output || stringifyPreviewOutput(result.finalOutput),
+    steps
+  };
 }
 
 function readStringArray(value: unknown) {
@@ -196,6 +258,37 @@ function normalizeMaxIterations(value: unknown) {
   return Math.min(100, Math.max(1, Math.trunc(parsed)));
 }
 
+function normalizeTopK(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 5;
+  }
+  return Math.min(50, Math.max(1, Math.trunc(parsed)));
+}
+
+function normalizeSimilarityThreshold(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 0.7;
+  }
+  return Math.min(1, Math.max(0, Number(parsed.toFixed(2))));
+}
+
+function getRetrievalConfig(node: WorkflowNode | undefined): RetrievalNodeConfig {
+  const config = node?.config ?? {};
+  const legacyKnowledgeBaseIds = Array.isArray(config.knowledgeBaseIds)
+    ? config.knowledgeBaseIds.filter((item): item is string => typeof item === "string")
+    : [];
+
+  return {
+    knowledgeBaseId: readString(config.knowledgeBaseId, legacyKnowledgeBaseIds[0] ?? ""),
+    queryVariable: readString(config.queryVariable || config.variable, "userinput.question"),
+    topK: normalizeTopK(config.topK),
+    similarityThreshold: normalizeSimilarityThreshold(config.similarityThreshold),
+    returnCitations: config.returnCitations !== false
+  };
+}
+
 function getLlmConfig(node: WorkflowNode | undefined, fallbackModelProviderId = ""): LlmNodeConfig {
   const config = node?.config ?? {};
 
@@ -208,9 +301,22 @@ function getLlmConfig(node: WorkflowNode | undefined, fallbackModelProviderId = 
   };
 }
 
+function getDefaultRetrievalContextVariable(contextOptions: Array<{ nodeId: string; name: string; value: string }>) {
+  return contextOptions.find((option) => option.name === "result" && option.value === `${option.nodeId}.result`)?.value ?? "";
+}
+
 function getModelLabel(modelProviders: ModelProvider[], modelProviderId: string) {
   const provider = modelProviders.find((item) => item.id === modelProviderId);
   return provider?.model ?? "";
+}
+
+function getKnowledgeBaseLabel(knowledgeBases: KnowledgeBase[], knowledgeBaseId: string) {
+  const knowledgeBase = knowledgeBases.find((item) => item.id === knowledgeBaseId);
+  return knowledgeBase?.name ?? "";
+}
+
+function formatWorkflowVariableOption(option: { nodeName: string; name: string; valueType: string }) {
+  return `${option.nodeName} / ${option.name} ${option.valueType}`;
 }
 
 type WorkflowFlowNodeData = {
@@ -218,6 +324,7 @@ type WorkflowFlowNodeData = {
   status: WorkflowNode["status"];
   canDelete: boolean;
   modelLabel?: string;
+  knowledgeBaseLabel?: string;
   nodeNames: Record<string, string>;
   onDelete: (nodeId: string) => void;
   onSelect: (nodeId: string) => void;
@@ -225,8 +332,9 @@ type WorkflowFlowNodeData = {
 };
 
 function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
-  const { node, canDelete, modelLabel, nodeNames, onDelete, onSelect, onUpdateDescription } = data;
+  const { node, canDelete, modelLabel, knowledgeBaseLabel, nodeNames, onDelete, onSelect, onUpdateDescription } = data;
   const inputFields = node.type === "trigger" ? getInputFields(node) : [];
+  const retrievalConfig = node.type === "retrieval" ? getRetrievalConfig(node) : null;
   const [isEditingComment, setIsEditingComment] = useState(false);
 
   function handleDelete(event: MouseEvent<HTMLElement>) {
@@ -297,9 +405,9 @@ function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
         type="button"
       >
         <span className="workflow-node-title">
-          {node.type === "trigger" || node.type === "llm" || node.type === "expose" ? (
+          {node.type === "trigger" || node.type === "llm" || node.type === "retrieval" || node.type === "expose" ? (
             <span className="workflow-node-icon" aria-hidden="true">
-              {node.type === "trigger" ? <Home size={13} /> : node.type === "llm" ? <Bot size={13} /> : <FileOutput size={13} />}
+              {node.type === "trigger" ? <Home size={13} /> : node.type === "llm" ? <Bot size={13} /> : node.type === "retrieval" ? <Search size={13} /> : <FileOutput size={13} />}
             </span>
           ) : null}
           <strong>{node.name}</strong>
@@ -319,6 +427,10 @@ function WorkflowFlowNode({ data }: { data: WorkflowFlowNodeData }) {
         ) : node.type === "llm" ? (
           <span className="workflow-model-chip">
             <span>{modelLabel || "未选择模型"}</span>
+          </span>
+        ) : node.type === "retrieval" ? (
+          <span className="workflow-model-chip">
+            <span>{knowledgeBaseLabel || "未选择知识库"} · TopK {retrievalConfig?.topK ?? 5}</span>
           </span>
         ) : node.type === "expose" ? (
           <span className="workflow-output-summary">
@@ -414,7 +526,8 @@ function createFlowNodes(
   currentNodes: Node[] = [],
   modelProviders: ModelProvider[] = [],
   fallbackModelProviderId = "",
-  onUpdateDescription: (nodeId: string, description: string) => void = () => undefined
+  onUpdateDescription: (nodeId: string, description: string) => void = () => undefined,
+  knowledgeBases: KnowledgeBase[] = []
 ): Node[] {
   const nodeNames = Object.fromEntries(nodes.map((node) => [node.id, node.name]));
   return nodes.map((node, index) => {
@@ -435,6 +548,7 @@ function createFlowNodes(
         status,
         canDelete: !isDefaultUserInputNode(node),
         modelLabel: node.type === "llm" ? getModelLabel(modelProviders, getLlmConfig(node, fallbackModelProviderId).modelProviderId) : undefined,
+        knowledgeBaseLabel: node.type === "retrieval" ? getKnowledgeBaseLabel(knowledgeBases, getRetrievalConfig(node).knowledgeBaseId) : undefined,
         nodeNames,
         onDelete: onDeleteNode,
         onSelect: onSelectNode,
@@ -467,8 +581,8 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
     knowledgeBaseIds,
     setSelectedNodeId,
     setModelProviderId,
-    toggleKnowledgeBaseId,
-    latestRun
+    latestRun,
+    setLatestRun
   } = useCanvasConfig();
   const [canvasMode, setCanvasMode] = useState<CanvasMode>("select");
   const [isNodeMenuOpen, setIsNodeMenuOpen] = useState(false);
@@ -548,7 +662,7 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
     []
   );
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(
-    createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, undefined, handleSelectNode, [], llmModelProviders, modelProviderId, handleUpdateNodeDescription)
+    createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, undefined, handleSelectNode, [], llmModelProviders, modelProviderId, handleUpdateNodeDescription, knowledgeBases)
   );
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<Edge>(createFlowEdges(workflow?.edges));
 
@@ -661,17 +775,17 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
 
   useEffect(() => {
     setFlowNodes((currentNodes) =>
-      createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, currentNodes, llmModelProviders, modelProviderId, handleUpdateNodeDescription)
+      createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, currentNodes, llmModelProviders, modelProviderId, handleUpdateNodeDescription, knowledgeBases)
     );
-  }, [handleDeleteNode, handleSelectNode, handleUpdateNodeDescription, latestRun, llmModelProviders, modelProviderId, nodes, selectedNode?.id, setFlowNodes]);
+  }, [handleDeleteNode, handleSelectNode, handleUpdateNodeDescription, knowledgeBases, latestRun, llmModelProviders, modelProviderId, nodes, selectedNode?.id, setFlowNodes]);
 
   useEffect(() => {
     setFlowNodes(
-      createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, [], llmModelProviders, modelProviderId, handleUpdateNodeDescription)
+      createFlowNodes(nodes, selectedNode?.id ?? "", latestRun, handleDeleteNode, handleSelectNode, [], llmModelProviders, modelProviderId, handleUpdateNodeDescription, knowledgeBases)
     );
     setFlowEdges(createFlowEdges(workflow?.edges));
     hasLoadedWorkflowRef.current = false;
-  }, [setFlowEdges, workflow?.edges, workflow?.id]);
+  }, [knowledgeBases, setFlowEdges, workflow?.edges, workflow?.id]);
 
   useEffect(() => {
     if (workflow?.id) {
@@ -681,6 +795,14 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
 
   const selectedLlmConfig = selectedNode?.type === "llm" ? getLlmConfig(selectedNode, modelProviderId) : null;
   const selectedModel = llmModelProviders.find((provider) => provider.id === (selectedLlmConfig?.modelProviderId || modelProviderId));
+  const workflowKnowledgeBaseIds = useMemo(
+    () => nodes
+      .filter((node) => node.type === "retrieval")
+      .map((node) => getRetrievalConfig(node).knowledgeBaseId)
+      .filter(Boolean),
+    [nodes]
+  );
+  const previewKnowledgeBaseIds = workflowKnowledgeBaseIds.length > 0 ? workflowKnowledgeBaseIds : knowledgeBaseIds;
   const failedStep = latestRun?.steps.find((step) => step.status === "failed");
 
   function handleOpenPreview() {
@@ -740,42 +862,30 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
     setPreviewDebugInfo({
       runId: "",
       modelProviderId: modelProviderId || "未选择",
-      knowledgeBaseCount: knowledgeBaseIds.length,
+      knowledgeBaseCount: previewKnowledgeBaseIds.length,
       conversationHistoryCount: conversationHistory.length,
       status: "streaming"
     });
-    let hasVisibleAssistantOutput = false;
     try {
-      const runId = await streamAgentRun(
-        {
-        agentId: workflow?.agentId ?? "agent-after-sale",
-        userInput: userInputValue || messageContent,
-        modelProviderId: modelProviderId || undefined,
-        knowledgeBaseIds,
-        runCategory: "test",
-        conversationHistory
-      },
-        (chunk) => {
-          if (chunk) {
-            hasVisibleAssistantOutput = true;
-          }
-          setPreviewMessages((messages) => messages.map((message) => (
-            message.id === assistantMessageId ? { ...message, content: message.content + chunk } : message
-          )));
-        }
-      );
-      setPreviewDebugInfo((debugInfo) => ({ ...debugInfo, runId, status: runId ? "success" : "partial" }));
-      if (runId) {
-        void queryClient.invalidateQueries({ queryKey: ["recent-runs"] });
-      }
+      const result = await runWorkflowTest(workflow.id, userInputValue || messageContent);
+      const runTrace = buildRunTraceFromWorkflowTest(result, workflow, nodes);
+      setLatestRun(runTrace);
+      setPreviewMessages((messages) => messages.map((message) => (
+        message.id === assistantMessageId
+          ? {
+              ...message,
+              role: result.status === "failed" ? "error" : "assistant",
+              content: result.output || result.errorMessage || "工作流已运行，但没有生成输出。"
+            }
+          : message
+      )));
+      setPreviewDebugInfo((debugInfo) => ({ ...debugInfo, runId: result.id, status: result.status === "success" ? "success" : "error" }));
+      void queryClient.invalidateQueries({ queryKey: ["recent-runs"] });
     } catch (error) {
-      setPreviewDebugInfo((debugInfo) => ({ ...debugInfo, status: hasVisibleAssistantOutput ? "partial" : "error" }));
+      setPreviewDebugInfo((debugInfo) => ({ ...debugInfo, status: "error" }));
       const errorMessage = error instanceof Error && error.message
         ? error.message
         : "运行失败，请检查模型与工作流配置后重试。";
-      if (hasVisibleAssistantOutput) {
-        return;
-      }
       setPreviewMessages((messages) => messages.map((message) => (
         message.id === assistantMessageId
           ? { ...message, role: "error", content: errorMessage }
@@ -794,10 +904,10 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
       };
     }
     if (node.type === "llm") {
-      return getLlmConfig(node, modelProviderId);
+      return getEffectiveLlmConfig(node, modelProviderId);
     }
     if (node.type === "retrieval") {
-      return { knowledgeBaseIds };
+      return getRetrievalConfig(node);
     }
     if (node.type === "loop") {
       return {
@@ -873,7 +983,7 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
     setPlacementPreviewPosition(null);
     setIsNodeMenuOpen(false);
     setCanvasMode("select");
-    const labels = { llm: " LLM 节点", comment: "注释框", expose: "输出节点", condition: "条件节点", loop: "循环节点" };
+    const labels = { llm: " LLM 节点", retrieval: "知识库检索节点", comment: "注释框", expose: "输出节点", condition: "条件节点", loop: "循环节点" };
     setLayoutMessage(`点击画布放置${labels[type]}`);
   }
 
@@ -885,13 +995,22 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
     return getReachableUpstreamVariables(node.id, nodes, flowEdges);
   }
 
+  function getEffectiveLlmConfig(node: WorkflowNode | undefined, fallbackModelProviderId = ""): LlmNodeConfig {
+    const config = getLlmConfig(node, fallbackModelProviderId);
+    if (!node || node.type !== "llm" || config.contextVariables.length > 0) {
+      return config;
+    }
+    const defaultContextVariable = getDefaultRetrievalContextVariable(getUpstreamContextOptions(node));
+    return defaultContextVariable ? { ...config, contextVariables: [defaultContextVariable] } : config;
+  }
+
   function updateSelectedLlmConfig(config: Partial<LlmNodeConfig>) {
     if (!selectedNode || selectedNode.type !== "llm") {
       return;
     }
 
     updateSelectedNodeConfig({
-      ...getLlmConfig(selectedNode, modelProviderId),
+      ...getEffectiveLlmConfig(selectedNode, modelProviderId),
       ...config
     });
   }
@@ -902,6 +1021,17 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
     }
 
     updateSelectedLlmConfig({ contextVariables: variable ? [variable] : [] });
+  }
+
+  function updateSelectedRetrievalConfig(config: Partial<RetrievalNodeConfig>) {
+    if (!selectedNode || selectedNode.type !== "retrieval") {
+      return;
+    }
+
+    updateSelectedNodeConfig({
+      ...getRetrievalConfig(selectedNode),
+      ...config
+    });
   }
 
   function handleAddComment() {
@@ -952,7 +1082,21 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
           status: "success",
           description: LLM_DESCRIPTION
           }
-        : pendingPlacement === "comment"
+        : pendingPlacement === "retrieval"
+          ? {
+              id,
+              type: "retrieval",
+              name: "知识库检索",
+              status: "success",
+              config: {
+                knowledgeBaseId: "",
+                queryVariable: "userinput.question",
+                topK: 5,
+                similarityThreshold: 0.7,
+                returnCitations: true
+              }
+            }
+          : pendingPlacement === "comment"
           ? {
           id,
           type: "comment",
@@ -992,7 +1136,8 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
         [],
         llmModelProviders,
         modelProviderId,
-        handleUpdateNodeDescription
+        handleUpdateNodeDescription,
+        knowledgeBases
       ).map((node) => ({ ...node, position }))
     ]);
     setSelectedNodeId(id);
@@ -1351,28 +1496,87 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
     }
 
     if (selectedNode.type === "retrieval") {
+      const retrievalConfig = getRetrievalConfig(selectedNode);
       return (
-        <div className="field-stack">
-          <span>知识库</span>
-          {knowledgeBases.map((knowledgeBase) => (
-            <label className="check-row" key={knowledgeBase.id}>
+        <div className="field-stack workflow-retrieval-config">
+          <label className="field-stack">
+            <span>知识库</span>
+            <select
+              aria-label="知识库"
+              onChange={(event) => updateSelectedRetrievalConfig({ knowledgeBaseId: event.target.value })}
+              value={retrievalConfig.knowledgeBaseId}
+            >
+              <option value="">不绑定知识库</option>
+              {knowledgeBases.map((knowledgeBase) => (
+                <option key={knowledgeBase.id} value={knowledgeBase.id}>
+                  {knowledgeBase.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {knowledgeBases.length === 0 ? <p className="empty-note">暂无可选知识库，请先在知识库页面创建并处理文档。</p> : null}
+          <label className="field-stack">
+            <span>检索问题变量</span>
+            <input
+              aria-label="检索问题变量"
+              onChange={(event) => updateSelectedRetrievalConfig({ queryVariable: event.target.value })}
+              placeholder="userinput.question"
+              value={retrievalConfig.queryVariable}
+            />
+          </label>
+          <label className="field-stack">
+            <span>TopK</span>
+            <input
+              aria-label="TopK"
+              max={50}
+              min={1}
+              onChange={(event) => updateSelectedRetrievalConfig({ topK: normalizeTopK(event.target.value) })}
+              type="number"
+              value={retrievalConfig.topK}
+            />
+          </label>
+          <label className="field-stack">
+            <span>相似度阈值</span>
+            <input
+              aria-label="相似度阈值"
+              max={1}
+              min={0}
+              onChange={(event) => updateSelectedRetrievalConfig({ similarityThreshold: normalizeSimilarityThreshold(event.target.value) })}
+              step={0.01}
+              type="number"
+              value={retrievalConfig.similarityThreshold}
+            />
+          </label>
+          <label className="llm-toggle-row">
+            <span>返回引用来源</span>
+            <span className="llm-switch">
               <input
-                aria-label={knowledgeBase.name}
-                checked={knowledgeBaseIds.includes(knowledgeBase.id)}
-                onChange={() => toggleKnowledgeBaseId(knowledgeBase.id)}
+                aria-label="返回引用来源"
+                checked={retrievalConfig.returnCitations}
+                onChange={(event) => updateSelectedRetrievalConfig({ returnCitations: event.target.checked })}
+                role="switch"
                 type="checkbox"
               />
-              {knowledgeBase.name}
-            </label>
-          ))}
-          {knowledgeBases.length === 0 ? <p className="empty-note">暂无可选知识库。</p> : null}
+              <span aria-hidden="true" />
+            </span>
+          </label>
+          <section className="llm-output-variables" aria-label="检索输出变量">
+            <strong>输出变量</strong>
+            <div>
+              <span>
+                <code>result</code>
+                <small>object</small>
+              </span>
+              <p>包含 matches 与 citations，可供 LLM 节点作为上下文使用。</p>
+            </div>
+          </section>
         </div>
       );
     }
 
     if (selectedNode.type === "llm") {
-      const llmConfig = getLlmConfig(selectedNode, modelProviderId);
       const contextOptions = getUpstreamContextOptions(selectedNode);
+      const llmConfig = getEffectiveLlmConfig(selectedNode, modelProviderId);
 
       return (
         <div className="field-stack llm-config-panel">
@@ -1408,7 +1612,7 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
                 <option value="">不选择上游输出变量</option>
                 {contextOptions.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.name} · {option.value}
+                    {formatWorkflowVariableOption(option)}
                   </option>
                 ))}
               </select>
@@ -1585,6 +1789,10 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
                 <strong>添加 LLM 节点</strong>
                 <span>{LLM_DESCRIPTION}</span>
               </button>
+              <button aria-label="添加知识库检索节点" onClick={() => handleAddNode("retrieval")} type="button">
+                <strong>知识库检索</strong>
+                <span>从指定知识库取回相关分段，供下游 LLM 使用</span>
+              </button>
               <button aria-label="添加输出节点" onClick={() => handleAddNode("expose")} type="button">
                 <strong>输出</strong>
                 <span>配置工作流对外暴露的输出变量</span>
@@ -1642,13 +1850,15 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
           </ReactFlow>
           {pendingPlacement && placementPreviewPosition ? (
             <div
-              aria-label={`待放置${pendingPlacement === "llm" ? " LLM 节点" : pendingPlacement === "comment" ? "注释框" : pendingPlacement === "expose" ? "输出节点" : pendingPlacement === "condition" ? "条件节点" : "循环节点"}`}
+              aria-label={`待放置${pendingPlacement === "llm" ? " LLM 节点" : pendingPlacement === "retrieval" ? "知识库检索节点" : pendingPlacement === "comment" ? "注释框" : pendingPlacement === "expose" ? "输出节点" : pendingPlacement === "condition" ? "条件节点" : "循环节点"}`}
               className={`workflow-placement-preview workflow-placement-preview-${pendingPlacement}`}
               style={{ left: placementPreviewPosition.x, top: placementPreviewPosition.y }}
             >
               <strong>
                 {pendingPlacement === "llm"
                   ? `LLM ${nodes.filter((node) => node.type === "llm").length + 1}`
+                  : pendingPlacement === "retrieval"
+                    ? "知识库检索"
                   : pendingPlacement === "comment"
                     ? "注释"
                     : pendingPlacement === "expose"
@@ -1763,13 +1973,13 @@ export function WorkflowPage({ onBackToAgents }: WorkflowPageProps) {
                 {renderNodeInspector()}
               </div>
 
-              {selectedNode?.type === "trigger" || selectedNode?.type === "llm" || selectedNode?.type === "expose" ? null : (
+              {selectedNode?.type === "trigger" || selectedNode?.type === "llm" || selectedNode?.type === "retrieval" || selectedNode?.type === "expose" ? null : (
                 <>
                   <KeyValueList
                     items={[
                       ["选中节点", selectedNode?.name ?? "未选择"],
                       ["模型", selectedModel ? selectedModel.model : "未选择"],
-                      ["知识库数量", String(knowledgeBaseIds.length)],
+                      ["知识库数量", String(previewKnowledgeBaseIds.length)],
                       ["最新运行", latestRun ? latestRun.id : "等待运行调试"],
                       ["输出", latestRun?.finalOutput ? "已生成 finalOutput" : "运行调试后生成 finalOutput"]
                     ]}

@@ -59,6 +59,7 @@ class KnowledgeDocumentCreate(BaseModel):
     name: str = Field(min_length=1)
     mime_type: str = Field(alias="mimeType", min_length=1)
     size_kb: int = Field(alias="sizeKb", ge=1)
+    content: str | None = None
 
 
 class KnowledgeDocumentRead(KnowledgeDocumentCreate):
@@ -67,6 +68,7 @@ class KnowledgeDocumentRead(KnowledgeDocumentCreate):
     segment_mode: str = Field(default="通用", alias="segmentMode")
     character_count: int = Field(default=0, alias="characterCount")
     hit_count: int = Field(default=0, alias="hitCount")
+    error_message: str | None = Field(default=None, alias="errorMessage")
     created_at: str | None = Field(default=None, alias="createdAt")
 
 
@@ -75,6 +77,22 @@ class KnowledgeProcessingJobRead(BaseModel):
     knowledge_base_id: str = Field(alias="knowledgeBaseId")
     status: str
     chunks_created: int = Field(alias="chunksCreated")
+    error_message: str | None = Field(default=None, alias="errorMessage")
+    created_at: str | None = Field(default=None, alias="createdAt")
+    started_at: str | None = Field(default=None, alias="startedAt")
+    finished_at: str | None = Field(default=None, alias="finishedAt")
+
+
+class KnowledgeSegmentRead(BaseModel):
+    id: str
+    knowledge_base_id: str = Field(alias="knowledgeBaseId")
+    document_id: str = Field(alias="documentId")
+    position: int
+    content: str
+    character_count: int = Field(alias="characterCount")
+    token_count: int = Field(alias="tokenCount")
+    status: str
+    index_node_hash: str | None = Field(default=None, alias="indexNodeHash")
 
 
 class KnowledgeSearchRequest(BaseModel):
@@ -82,11 +100,38 @@ class KnowledgeSearchRequest(BaseModel):
 
 
 class KnowledgeSearchMatch(BaseModel):
+    segment_id: str | None = Field(default=None, alias="segmentId")
     document_id: str = Field(alias="documentId")
-    text: str
+    document_name: str | None = Field(default=None, alias="documentName")
+    content: str | None = None
+    text: str | None = None
+    position: int | None = None
     score: float
+    metadata: dict[str, str | int | float | bool | None] | None = None
+
+
+class KnowledgeCitationRead(BaseModel):
+    segment_id: str = Field(alias="segmentId")
+    document_id: str = Field(alias="documentId")
+    document_name: str = Field(alias="documentName")
+    snippet: str
+    position: int
 
 
 class KnowledgeSearchResponse(BaseModel):
     query: str
     matches: list[KnowledgeSearchMatch]
+    citations: list[KnowledgeCitationRead] = []
+
+
+class KnowledgeAnswerRequest(BaseModel):
+    query: str = Field(min_length=1)
+
+
+class KnowledgeAnswerResponse(BaseModel):
+    query: str
+    answer: str
+    matches: list[KnowledgeSearchMatch]
+    citations: list[KnowledgeCitationRead] = []
+    model_provider_id: str = Field(alias="modelProviderId")
+    model_provider_name: str = Field(alias="modelProviderName")

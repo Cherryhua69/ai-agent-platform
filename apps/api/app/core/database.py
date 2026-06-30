@@ -20,6 +20,9 @@ def init_database() -> None:
     _ensure_run_summary_columns()
     _ensure_model_provider_columns()
     _ensure_knowledge_base_columns()
+    _ensure_knowledge_document_columns()
+    _ensure_knowledge_segment_table()
+    _ensure_knowledge_processing_job_table()
 
 
 def _ensure_run_summary_columns() -> None:
@@ -93,3 +96,47 @@ def _ensure_knowledge_base_columns() -> None:
             connection.execute(text(statement))
         if "updated_at" not in columns:
             connection.execute(text("UPDATE knowledge_bases SET updated_at = created_at WHERE updated_at IS NULL"))
+
+
+def _ensure_knowledge_document_columns() -> None:
+    inspector = inspect(engine)
+    if not inspector.has_table("knowledge_documents"):
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("knowledge_documents")}
+    statements: list[str] = []
+    if "content" not in columns:
+        statements.append("ALTER TABLE knowledge_documents ADD COLUMN content TEXT NULL")
+    if "character_count" not in columns:
+        statements.append("ALTER TABLE knowledge_documents ADD COLUMN character_count INTEGER NOT NULL DEFAULT 0")
+    if "hit_count" not in columns:
+        statements.append("ALTER TABLE knowledge_documents ADD COLUMN hit_count INTEGER NOT NULL DEFAULT 0")
+    if "error_message" not in columns:
+        statements.append("ALTER TABLE knowledge_documents ADD COLUMN error_message TEXT NULL")
+    if "updated_at" not in columns:
+        statements.append("ALTER TABLE knowledge_documents ADD COLUMN updated_at DATETIME NULL")
+
+    if not statements:
+        return
+
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+        if "updated_at" not in columns:
+            connection.execute(text("UPDATE knowledge_documents SET updated_at = created_at WHERE updated_at IS NULL"))
+
+
+def _ensure_knowledge_segment_table() -> None:
+    inspector = inspect(engine)
+    if inspector.has_table("knowledge_segments"):
+        return
+
+    Base.metadata.tables["knowledge_segments"].create(bind=engine, checkfirst=True)
+
+
+def _ensure_knowledge_processing_job_table() -> None:
+    inspector = inspect(engine)
+    if inspector.has_table("knowledge_processing_jobs"):
+        return
+
+    Base.metadata.tables["knowledge_processing_jobs"].create(bind=engine, checkfirst=True)

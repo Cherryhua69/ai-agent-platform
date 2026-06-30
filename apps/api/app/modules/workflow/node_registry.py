@@ -50,6 +50,58 @@ def _serializable(value: Any) -> Any:
     return value
 
 
+def _format_context_value(value: Any) -> str:
+    if isinstance(value, dict) and isinstance(value.get("matches"), list):
+        lines = ["检索结果："]
+        for index, match in enumerate(value.get("matches", [])[:8], start=1):
+            if not isinstance(match, dict):
+                continue
+            document_name = str(match.get("documentName") or match.get("document_name") or match.get("documentId") or "未知文档")
+            position = match.get("position")
+            score = match.get("score")
+            content = str(match.get("content") or match.get("text") or "").strip()
+            source = f"{document_name}"
+            if position is not None:
+                source += f" 第 {position} 段"
+            score_text = f" 相似度 {score}" if score is not None else ""
+            lines.append(f"{index}. 来源：{source}{score_text}")
+            if content:
+                lines.append(f"   内容：{content}")
+        citations = value.get("citations")
+        if isinstance(citations, list) and citations:
+            citation_lines = []
+            for citation in citations[:8]:
+                if not isinstance(citation, dict):
+                    continue
+                document_name = str(citation.get("documentName") or citation.get("document_name") or citation.get("documentId") or "未知文档")
+                position = citation.get("position")
+                citation_lines.append(f"{document_name}{f' 第 {position} 段' if position is not None else ''}")
+            if citation_lines:
+                lines.append(f"引用来源：{'；'.join(citation_lines)}")
+        return "\n".join(lines)
+    return json.dumps(value, ensure_ascii=False, default=str)
+
+
+def _read_optional_int(value: Any, minimum: int, maximum: int) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return min(maximum, max(minimum, parsed))
+
+
+def _read_optional_float(value: Any, minimum: float, maximum: float) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return min(maximum, max(minimum, parsed))
+
+
 def _render_prompt(template: str, state: WorkflowState) -> str:
     def replace(match: re.Match[str]) -> str:
         reference = match.group(1).strip()
@@ -158,11 +210,32 @@ class NodeRegistry:
 
     def _retrieval(self, node: WorkflowNodeRead) -> NodeHandler:
         reference = str(node.config.get("queryVariable") or node.config.get("variable") or "")
+        knowledge_base_id = str(node.config.get("knowledgeBaseId") or "").strip() or None
+        top_k = _read_optional_int(node.config.get("topK"), minimum=1, maximum=50)
+        similarity_threshold = _read_optional_float(node.config.get("similarityThreshold"), minimum=0.0, maximum=1.0)
+        return_citations = node.config.get("returnCitations") if isinstance(node.config.get("returnCitations"), bool) else None
 
         def handler(state: WorkflowState) -> dict[str, Any]:
             query = resolve_variable(state, reference)
-            result = _serializable(self._knowledge.search(str(query or "")))
-            return {"node_outputs": {node.id: {"result": result}}, "trace_steps": self._trace(node)}
+            result = _serializable(
+                self._knowledge.search(
+                    str(query or ""),
+                    knowledge_base_id=knowledge_base_id,
+                    top_k=top_k,
+                    similarity_threshold=similarity_threshold,
+                    return_citations=return_citations,
+                )
+            )
+            return {
+                "node_outputs": {node.id: {"result": result}},
+                "trace_steps": self._trace(
+                    node,
+                    knowledge_base_id=knowledge_base_id,
+                    top_k=top_k,
+                    similarity_threshold=similarity_threshold,
+                    return_citations=return_citations,
+                ),
+            }
 
         return handler
 
@@ -182,7 +255,7 @@ class NodeRegistry:
             if isinstance(context_variables, list):
                 for item in context_variables:
                     reference = str(item.get("value") or item.get("name")) if isinstance(item, dict) else str(item)
-                    contexts.append(f"{reference}: {json.dumps(resolve_variable(state, reference), ensure_ascii=False, default=str)}")
+                    contexts.append(f"{reference}: {_format_context_value(resolve_variable(state, reference))}")
             rendered_user_prompt = _render_prompt(user_prompt, state)
             if not rendered_user_prompt.strip():
                 rendered_user_prompt = next(

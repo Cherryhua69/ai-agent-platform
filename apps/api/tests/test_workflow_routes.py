@@ -132,15 +132,78 @@ def test_update_workflow_persists_canvas_contract():
     assert workflow["edges"] == payload["edges"]
 
 
-def test_run_workflow_test_returns_trace_placeholder():
+def test_run_workflow_test_executes_canvas_nodes_and_returns_trace():
     client = TestClient(app)
     created = client.post("/api/agents", json={"name": "测试助手", "scenario": "配置调试"}).json()
+    workflow_id = created["workflowId"]
 
-    response = client.post(f"/api/workflows/{created['workflowId']}/test", json={"input": "如何申请退款？"})
+    client.put(
+        f"/api/workflows/{workflow_id}",
+        json={
+            "name": "知识库检索测试流",
+            "status": "draft",
+            "toolHealthStatus": "online",
+            "viewport": {"x": 0, "y": 0, "zoom": 1},
+            "nodes": [
+                {
+                    "id": "node-trigger",
+                    "type": "trigger",
+                    "name": "用户输入",
+                    "status": "success",
+                    "position": {"x": 80, "y": 120},
+                    "config": {"inputFields": [{"id": "question", "label": "问题", "variable": "userinput.question", "kind": "text", "required": True}]},
+                },
+                {
+                    "id": "node-retrieval",
+                    "type": "retrieval",
+                    "name": "知识库检索",
+                    "status": "success",
+                    "position": {"x": 360, "y": 120},
+                    "config": {"queryVariable": "userinput.question", "topK": 3, "similarityThreshold": 0.2, "returnCitations": True},
+                },
+                {
+                    "id": "node-expose",
+                    "type": "expose",
+                    "name": "输出",
+                    "status": "success",
+                    "position": {"x": 640, "y": 120},
+                    "config": {
+                        "outputVariables": [
+                            {
+                                "name": "retrievalResult",
+                                "value": "node-retrieval.result",
+                                "valueType": "Object",
+                            }
+                        ]
+                    },
+                },
+            ],
+            "edges": [
+                {"id": "edge-trigger-retrieval", "source": "node-trigger", "target": "node-retrieval", "sourceHandle": "right", "targetHandle": "left"},
+                {"id": "edge-retrieval-expose", "source": "node-retrieval", "target": "node-expose", "sourceHandle": "right", "targetHandle": "left"},
+            ],
+        },
+    )
+
+    response = client.post(f"/api/workflows/{workflow_id}/test", json={"input": "如何申请退款？"})
 
     assert response.status_code == 201
     body = response.json()
-    assert body["workflowId"] == created["workflowId"]
+    assert body["workflowId"] == workflow_id
     assert body["status"] == "success"
     assert body["input"] == "如何申请退款？"
     assert body["output"]
+    assert body["traceSteps"] == [
+        {"node_id": "node-trigger", "node_type": "trigger"},
+        {
+            "node_id": "node-retrieval",
+            "node_type": "retrieval",
+            "knowledge_base_id": None,
+            "top_k": 3,
+            "similarity_threshold": 0.2,
+            "return_citations": True,
+        },
+        {"node_id": "node-expose", "node_type": "expose"},
+    ]
+    assert body["nodeOutputs"]["node-retrieval"]["result"]["query"] == "如何申请退款？"
+    assert isinstance(body["finalOutput"]["retrievalResult"]["matches"], list)

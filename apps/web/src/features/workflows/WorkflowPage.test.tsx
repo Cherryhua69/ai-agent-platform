@@ -167,7 +167,7 @@ describe("WorkflowPage", () => {
     expect(screen.queryByText("local-smoke", { selector: ".workflow-editor-actions .status-pill" })).not.toBeInTheDocument();
   });
 
-  it("supports the left toolbar actions for adding LLM nodes, comments, modes, and auto layout", async () => {
+  it("supports the left toolbar actions for adding LLM, retrieval, output nodes, comments, modes, and auto layout", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
 
@@ -227,6 +227,7 @@ describe("WorkflowPage", () => {
     }
 
     expect(await screen.findByRole("button", { name: "添加 LLM 节点" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "添加知识库检索节点" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "添加输出节点" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "添加条件节点" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "添加循环节点" })).toBeInTheDocument();
@@ -256,6 +257,14 @@ describe("WorkflowPage", () => {
     expect(getComputedStyle(placedLlmNode as Element).position).toBe("absolute");
     expect(screen.queryByLabelText("待放置 LLM 节点")).not.toBeInTheDocument();
     expect(placedLlmButton.querySelector(".workflow-model-chip")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "添加节点" }));
+    fireEvent.click(screen.getByRole("button", { name: "添加知识库检索节点" }));
+    expect(screen.getByText("点击画布放置知识库检索节点")).toBeInTheDocument();
+    fireEvent.click(pane as Element, { clientX: 740, clientY: 380 });
+    const placedRetrievalButton = await screen.findByRole("button", { name: /知识库检索/ });
+    expect(placedRetrievalButton.querySelector(".workflow-node-icon")).toBeInTheDocument();
+    expect(placedRetrievalButton.textContent).toContain("未选择知识库");
 
     fireEvent.click(screen.getByRole("button", { name: "添加注释框" }));
     expect(screen.getByText("点击画布放置注释框")).toBeInTheDocument();
@@ -1098,7 +1107,12 @@ describe("WorkflowPage", () => {
               toolHealthStatus: "online",
               nodes: [
                 { id: "node-trigger", type: "trigger", name: "User request", status: "success" },
-                { id: "node-llm", type: "llm", name: "LLM", status: "success" }
+                { id: "node-llm", type: "llm", name: "LLM", status: "success" },
+                { id: "node-expose", type: "expose", name: "输出", status: "success" }
+              ],
+              edges: [
+                { id: "edge-trigger-llm", source: "node-trigger", target: "node-llm" },
+                { id: "edge-llm-expose", source: "node-llm", target: "node-expose" }
               ]
             }
           ]
@@ -1287,11 +1301,11 @@ describe("WorkflowPage", () => {
     expect(fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT")).toHaveLength(putCallsBeforeDeletingLlm);
   });
 
-  it("shows knowledge base configuration when selecting a retrieval node", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  it("configures and saves a retrieval node with a selected knowledge base", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
 
-      if (url.endsWith("/api/workflows")) {
+      if (url.endsWith("/api/workflows") && !init?.method) {
         return {
           ok: true,
           json: async () => [
@@ -1308,7 +1322,13 @@ describe("WorkflowPage", () => {
                   type: "retrieval",
                   name: "Knowledge retrieval",
                   status: "success",
-                  config: { knowledgeBaseIds: ["kb-support"] }
+                  config: {
+                    knowledgeBaseId: "kb-support",
+                    queryVariable: "userinput.question",
+                    topK: 4,
+                    similarityThreshold: 0.66,
+                    returnCitations: true
+                  }
                 }
               ]
             }
@@ -1330,24 +1350,140 @@ describe("WorkflowPage", () => {
               source: "Uploaded docs",
               documentCount: 128,
               retrievalStrategy: "Hybrid + Rerank",
+              topK: 5,
+              similarityThreshold: 0.7,
+              retrievalMode: "hybrid",
+              returnCitations: true,
               qualityScore: 92,
+              status: "ready"
+            },
+            {
+              id: "kb-policy",
+              name: "Policy snippets",
+              source: "Uploaded docs",
+              documentCount: 8,
+              retrievalStrategy: "Vector",
+              topK: 3,
+              similarityThreshold: 0.72,
+              retrievalMode: "vector",
+              returnCitations: true,
+              qualityScore: 88,
               status: "ready"
             }
           ]
         };
       }
 
+      if (init?.method === "PUT" && url.endsWith("/api/workflows/workflow-after-sale")) {
+        return { ok: true, json: async () => ({ id: "workflow-after-sale", agentId: "agent-after-sale", ...JSON.parse(String(init.body)) }) };
+      }
+
       return { ok: false, status: 404, json: async () => ({}) };
     });
     vi.stubGlobal("fetch", fetchMock);
-    useCanvasConfig.setState({ knowledgeBaseIds: ["kb-support"] });
 
     render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
 
     fireEvent.click(await screen.findByRole("button", { name: /Knowledge retrieval/ }));
 
     expect(await screen.findByRole("heading", { name: "配置：Knowledge retrieval" })).toBeInTheDocument();
-    expect(screen.getByLabelText<HTMLInputElement>("After-sale policy base").checked).toBe(true);
+    expect(screen.getByLabelText("知识库")).toHaveValue("kb-support");
+    expect(screen.getByLabelText("检索问题变量")).toHaveValue("userinput.question");
+    expect(screen.getByLabelText("TopK")).toHaveValue(4);
+    expect(screen.getByLabelText("相似度阈值")).toHaveValue(0.66);
+    expect(screen.getByLabelText("返回引用来源")).toBeChecked();
+    expect(screen.getByRole("option", { name: "After-sale policy base" })).toBeInTheDocument();
+    expect(screen.queryByText("选中节点")).not.toBeInTheDocument();
+    expect(screen.queryByText("模型")).not.toBeInTheDocument();
+    expect(screen.queryByText("知识库数量")).not.toBeInTheDocument();
+    expect(screen.queryByText("最近运行")).not.toBeInTheDocument();
+    expect(within(screen.getByLabelText("节点配置")).queryByText("输出")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("知识库"), { target: { value: "kb-policy" } });
+    fireEvent.change(screen.getByLabelText("TopK"), { target: { value: "7" } });
+    fireEvent.change(screen.getByLabelText("相似度阈值"), { target: { value: "0.51" } });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/workflows/workflow-after-sale", expect.objectContaining({ method: "PUT" })));
+    const saveCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith("/api/workflows/workflow-after-sale") && init?.method === "PUT");
+    const payload = JSON.parse(String(saveCall?.[1]?.body));
+    expect(payload.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "node-retrieval",
+        config: expect.objectContaining({
+          knowledgeBaseId: "kb-policy",
+          queryVariable: "userinput.question",
+          topK: 7,
+          similarityThreshold: 0.51,
+          returnCitations: true
+        })
+      })
+    ]));
+  });
+
+  it("defaults the LLM context to the connected retrieval result when no context was selected", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/workflows") && !init?.method) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "workflow-rag",
+              agentId: "agent-rag",
+              name: "RAG workflow",
+              status: "ready",
+              toolHealthStatus: "online",
+              nodes: [
+                { id: "node-trigger", type: "trigger", name: "用户输入", status: "success" },
+                { id: "node-retrieval", type: "retrieval", name: "知识库检索", status: "success" },
+                { id: "node-llm", type: "llm", name: "LLM", status: "success", config: { contextVariables: [] } }
+              ],
+              edges: [
+                { id: "edge-trigger-retrieval", source: "node-trigger", target: "node-retrieval", sourceHandle: "right", targetHandle: "left" },
+                { id: "edge-retrieval-llm", source: "node-retrieval", target: "node-llm", sourceHandle: "right", targetHandle: "left" }
+              ]
+            }
+          ]
+        };
+      }
+
+      if (url.endsWith("/api/model-providers")) {
+        return { ok: true, json: async () => [] };
+      }
+
+      if (url.endsWith("/api/knowledge-bases")) {
+        return { ok: true, json: async () => [] };
+      }
+
+      if (init?.method === "PUT" && url.endsWith("/api/workflows/workflow-rag")) {
+        return { ok: true, json: async () => JSON.parse(String(init.body)) };
+      }
+
+      return { ok: false, status: 404, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<WorkflowPage />, { wrapper: createWrapper().Wrapper });
+
+    fireEvent.click(await screen.findByRole("button", { name: "LLM" }));
+
+    expect(await screen.findByLabelText("上下文配置")).toHaveValue("node-retrieval.result");
+    expect(screen.getByRole("option", { name: "知识库检索 / result Array[Object]" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("LLM 节点描述"), { target: { value: "使用检索结果回答" } });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/workflows/workflow-rag", expect.objectContaining({ method: "PUT" })));
+    const saveCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith("/api/workflows/workflow-rag") && init?.method === "PUT");
+    const payload = JSON.parse(String(saveCall?.[1]?.body));
+    expect(payload.nodes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "node-llm",
+        config: expect.objectContaining({
+          contextVariables: ["node-retrieval.result"]
+        })
+      })
+    ]));
   });
 
   it("opens a dynamic chat preview and supports multi-turn test runs", async () => {
@@ -1379,7 +1515,14 @@ describe("WorkflowPage", () => {
                     ]
                   }
                 },
-                { id: "node-llm", type: "llm", name: "Configured model", status: "success" }
+                { id: "node-retrieval", type: "retrieval", name: "知识库检索", status: "success" },
+                { id: "node-llm", type: "llm", name: "Configured model", status: "success" },
+                { id: "node-expose", type: "expose", name: "输出", status: "success" }
+              ],
+              edges: [
+                { id: "edge-trigger-retrieval", source: "node-trigger", target: "node-retrieval" },
+                { id: "edge-retrieval-llm", source: "node-retrieval", target: "node-llm" },
+                { id: "edge-llm-expose", source: "node-llm", target: "node-expose" }
               ]
             }
           ]
@@ -1421,24 +1564,29 @@ describe("WorkflowPage", () => {
         };
       }
 
-      if (init?.method === "POST" && url.endsWith("/api/agents/agent-after-sale/runs/stream")) {
+      if (init?.method === "POST" && url.endsWith("/api/workflows/workflow-after-sale/test")) {
         runCount += 1;
         const answer = runCount === 1 ? "第一轮回复" : "第二轮回复";
-        const chunks = [
-          `${JSON.stringify({ type: "delta", text: answer.slice(0, 3) })}\n`,
-          `${JSON.stringify({ type: "delta", text: answer.slice(3) })}\n`,
-          `${JSON.stringify({ type: "done", runId: `run_canvas_${runCount}` })}\n`
-        ];
-        let chunkIndex = 0;
         return {
           ok: true,
-          body: {
-            getReader: () => ({
-              read: async () => chunkIndex < chunks.length
-                ? { done: false, value: new TextEncoder().encode(chunks[chunkIndex++]) }
-                : { done: true, value: undefined }
-            })
-          }
+          json: async () => ({
+            id: `workflow_test_${runCount}`,
+            workflowId: "workflow-after-sale",
+            status: "success",
+            input: JSON.parse(String(init.body)).input,
+            output: answer,
+            finalOutput: { answer },
+            traceSteps: [
+              { node_id: "node-trigger", node_type: "trigger" },
+              { node_id: "node-retrieval", node_type: "retrieval" },
+              { node_id: "node-llm", node_type: "llm" },
+              { node_id: "node-expose", node_type: "expose" }
+            ],
+            nodeOutputs: {
+              "node-retrieval": { result: { matches: [{ id: "segment-1" }] } },
+              "node-llm": { text: answer }
+            }
+          })
         };
       }
 
@@ -1479,13 +1627,9 @@ describe("WorkflowPage", () => {
     });
     fireEvent.click(send);
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/agents/agent-after-sale/runs/stream", {
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/workflows/workflow-after-sale/test", {
       body: JSON.stringify({
-        userInput: "第一轮问题",
-        modelProviderId: "model_provider_local",
-        knowledgeBaseIds: [],
-        runCategory: "test",
-        conversationHistory: []
+        input: "第一轮问题"
       }),
       headers: { "Content-Type": "application/json" },
       method: "POST"
@@ -1500,19 +1644,10 @@ describe("WorkflowPage", () => {
 
     expect(await within(preview).findByText("第二轮回复")).toBeInTheDocument();
     expect(within(preview).getByText("调试信息")).toBeInTheDocument();
-    expect(within(preview).getByText("run_canvas_2")).toBeInTheDocument();
+    expect(within(preview).getByText("workflow_test_2")).toBeInTheDocument();
     expect(within(preview).getByText("历史消息数").nextSibling).toHaveTextContent("2");
-    const streamCalls = fetchMock.mock.calls.filter(([input, init]) => init?.method === "POST" && String(input).endsWith("/runs/stream"));
-    expect(JSON.parse(String(streamCalls[1]?.[1]?.body))).toEqual({
-      userInput: "第二轮问题",
-      modelProviderId: "model_provider_local",
-      knowledgeBaseIds: [],
-      runCategory: "test",
-      conversationHistory: [
-        { role: "user", content: "第一轮问题\n附件：order.txt、one.txt、two.txt" },
-        { role: "assistant", content: "第一轮回复" }
-      ]
-    });
+    const workflowTestCalls = fetchMock.mock.calls.filter(([input, init]) => init?.method === "POST" && String(input).endsWith("/api/workflows/workflow-after-sale/test"));
+    expect(JSON.parse(String(workflowTestCalls[1]?.[1]?.body))).toEqual({ input: "第二轮问题" });
     expect(within(preview).getByText(/第一轮问题/)).toBeInTheDocument();
     expect(within(preview).getByText(/第二轮问题/)).toBeInTheDocument();
 
@@ -1580,18 +1715,23 @@ describe("WorkflowPage", () => {
         return { ok: true, json: async () => [] };
       }
 
-      if (init?.method === "POST" && url.endsWith("/api/agents/agent-after-sale/runs/stream")) {
-        const chunks = [`${JSON.stringify({ type: "error", message: "模型上下文过长，请缩短历史后重试" })}\n`];
-        let chunkIndex = 0;
+      if (init?.method === "POST" && url.endsWith("/api/workflows/workflow-after-sale/test")) {
         return {
           ok: true,
-          body: {
-            getReader: () => ({
-              read: async () => chunkIndex < chunks.length
-                ? { done: false, value: new TextEncoder().encode(chunks[chunkIndex++]) }
-                : { done: true, value: undefined }
-            })
-          }
+          json: async () => ({
+            id: "workflow_test_failed",
+            workflowId: "workflow-after-sale",
+            status: "failed",
+            input: "写一个 c++ 代码给我",
+            output: "模型上下文过长，请缩短历史后重试",
+            finalOutput: {},
+            traceSteps: [
+              { node_id: "node-trigger", node_type: "trigger" },
+              { node_id: "node-llm", node_type: "llm", status: "failed", message: "模型上下文过长，请缩短历史后重试" }
+            ],
+            nodeOutputs: {},
+            errorMessage: "模型上下文过长，请缩短历史后重试"
+          })
         };
       }
 
@@ -1612,7 +1752,7 @@ describe("WorkflowPage", () => {
     expect(screen.queryByText("运行调试失败，请检查模型配置。")).not.toBeInTheDocument();
   });
 
-  it("keeps streamed assistant text when a later stream error arrives", async () => {
+  it("shows request failure when the workflow test API rejects the run", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
 
@@ -1638,7 +1778,12 @@ describe("WorkflowPage", () => {
                     ]
                   }
                 },
-                { id: "node-llm", type: "llm", name: "LLM", status: "success" }
+                { id: "node-llm", type: "llm", name: "LLM", status: "success" },
+                { id: "node-expose", type: "expose", name: "输出", status: "success" }
+              ],
+              edges: [
+                { id: "edge-trigger-llm", source: "node-trigger", target: "node-llm" },
+                { id: "edge-llm-expose", source: "node-llm", target: "node-expose" }
               ]
             }
           ]
@@ -1667,22 +1812,8 @@ describe("WorkflowPage", () => {
         return { ok: true, json: async () => [] };
       }
 
-      if (init?.method === "POST" && url.endsWith("/api/agents/agent-after-sale/runs/stream")) {
-        const chunks = [
-          `${JSON.stringify({ type: "delta", text: "这是已经生成的 C++ 回答片段" })}\n`,
-          `${JSON.stringify({ type: "error", message: "模型连接中断" })}\n`
-        ];
-        let chunkIndex = 0;
-        return {
-          ok: true,
-          body: {
-            getReader: () => ({
-              read: async () => chunkIndex < chunks.length
-                ? { done: false, value: new TextEncoder().encode(chunks[chunkIndex++]) }
-                : { done: true, value: undefined }
-            })
-          }
-        };
+      if (init?.method === "POST" && url.endsWith("/api/workflows/workflow-after-sale/test")) {
+        return { ok: false, status: 400, json: async () => ({ detail: "工作流必须恰好包含一个 expose" }) };
       }
 
       return { ok: false, status: 404, json: async () => ({}) };
@@ -1696,9 +1827,8 @@ describe("WorkflowPage", () => {
     fireEvent.change(within(preview).getByRole("textbox", { name: "text_input_1" }), { target: { value: "写一个 c++ 代码给我" } });
     fireEvent.click(within(preview).getByRole("button", { name: "发送" }));
 
-    expect(await within(preview).findByText("这是已经生成的 C++ 回答片段")).toBeInTheDocument();
-    expect(within(preview).queryByText("模型连接中断")).not.toBeInTheDocument();
-    expect(within(preview).getByText("运行状态").nextSibling).toHaveTextContent("partial");
+    expect(await within(preview).findByText("请求失败：400")).toBeInTheDocument();
+    expect(within(preview).getByText("运行状态").nextSibling).toHaveTextContent("error");
   });
 
   it("edits comments inline without opening the inspector and saves every change", async () => {
@@ -2041,8 +2171,9 @@ describe("WorkflowPage", () => {
     expect(document.querySelector(".workflow-inspector-tabs")).not.toBeInTheDocument();
     expect(screen.getByText("local-smoke").closest(".workflow-model-chip")).toBeInTheDocument();
     expect(screen.getByLabelText("上下文配置")).toHaveValue("");
-    expect(screen.getByRole("option", { name: "客户问题 · userinput.customer_question" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "工单附件 · userinput.support_file" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "用户输入 / 客户问题 String" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "用户输入 / 工单附件 File" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "客户问题 · userinput.customer_question" })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "用户输入文本 · userinput.text" })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("上下文配置"), { target: { value: "userinput.customer_question" } });
     expect(screen.getByText("输出变量")).toBeInTheDocument();
@@ -2065,6 +2196,8 @@ describe("WorkflowPage", () => {
     expect(screen.getByRole("heading", { name: "LLM Review" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "配置：LLM Review" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("上下文配置")).toHaveValue("node-llm.text");
+    expect(screen.getByRole("option", { name: "LLM / text String" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "text · node-llm.text" })).not.toBeInTheDocument();
     const llmReviewButton = screen.getByRole("button", { name: "LLM Review" });
     expect(llmReviewButton.querySelector(".workflow-node-title .workflow-node-icon")).toBeInTheDocument();
     expect(llmReviewButton.querySelector(".workflow-model-chip svg")).not.toBeInTheDocument();

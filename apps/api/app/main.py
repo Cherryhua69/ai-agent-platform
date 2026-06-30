@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -12,10 +14,19 @@ from app.modules.trace.router import router as trace_router
 from app.modules.workflow.router import router as workflow_router
 from app.modules.workflow.models import WorkflowModel  # noqa: F401
 from app.core.database import init_database
+from app.modules.knowledge.router import repo as knowledge_repo
 
 init_database()
 
-app = FastAPI(title="AI Agent Platform API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    del app
+    knowledge_repo.run_pending_processing_jobs()
+    yield
+
+
+app = FastAPI(title="AI Agent Platform API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

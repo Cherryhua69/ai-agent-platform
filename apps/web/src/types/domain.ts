@@ -93,8 +93,73 @@ export type KnowledgeDocument = {
   segmentMode?: string;
   characterCount?: number;
   hitCount?: number;
+  errorMessage?: string | null;
   createdAt?: string | null;
 };
+
+export type KnowledgeProcessingJob = {
+  id: string;
+  knowledgeBaseId: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "processing" | "completed" | string;
+  chunksCreated: number;
+  errorMessage?: string | null;
+  createdAt?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+};
+
+export type KnowledgeSegment = {
+  id: string;
+  knowledgeBaseId: string;
+  documentId: string;
+  position: number;
+  content: string;
+  characterCount: number;
+  tokenCount: number;
+  status: string;
+  indexNodeHash?: string | null;
+};
+
+export type KnowledgeSearchMatch = {
+  segmentId?: string | null;
+  documentId: string;
+  documentName?: string | null;
+  content?: string | null;
+  text?: string | null;
+  position?: number | null;
+  score: number;
+  metadata?: Record<string, string | number | boolean | null> | null;
+};
+
+export type KnowledgeCitation = {
+  segmentId: string;
+  documentId: string;
+  documentName: string;
+  snippet: string;
+  position: number;
+};
+
+export type KnowledgeSearchResponse = {
+  query: string;
+  matches: KnowledgeSearchMatch[];
+  citations: KnowledgeCitation[];
+};
+
+export type KnowledgeAnswerResponse = {
+  query: string;
+  answer: string;
+  matches: KnowledgeSearchMatch[];
+  citations: KnowledgeCitation[];
+  modelProviderId: string;
+  modelProviderName: string;
+};
+
+export type KnowledgeAnswerStreamEvent =
+  | { type: "retrieval_started"; runId: string; query: string }
+  | { type: "retrieval_completed"; runId: string; matchCount: number; citations: KnowledgeCitation[] }
+  | { type: "answer_delta"; runId: string; text: string }
+  | { type: "completed"; runId: string; answer: string; citations: KnowledgeCitation[] }
+  | { type: "error"; runId?: string; message: string };
 
 export type Tool = {
   id: string;
@@ -147,6 +212,18 @@ export type RunTrace = {
   costCny: number;
   finalOutput?: string;
   steps: TraceStep[];
+};
+
+export type WorkflowTestResult = {
+  id: string;
+  workflowId: string;
+  status: "success" | "failed";
+  input: string;
+  output: string;
+  finalOutput: Record<string, unknown>;
+  traceSteps: Array<Record<string, unknown>>;
+  nodeOutputs: Record<string, Record<string, unknown>>;
+  errorMessage?: string | null;
 };
 
 export type RecentRun = {

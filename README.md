@@ -94,12 +94,33 @@ python -m venv .venv
 .\.venv\Scripts\python -m pip install -e ".[dev]"
 ```
 
+如需启用 Qdrant 向量库适配器，请额外安装可选依赖：
+
+```powershell
+.\.venv\Scripts\python -m pip install -e ".[qdrant]"
+```
+
 ### MySQL 配置
 
 在 `apps/api/.env` 写入数据库连接。该文件已被 `.gitignore` 忽略，不应提交。
 
 ```env
 AI_AGENT_PLATFORM_DATABASE_URL=mysql+pymysql://<user>:<url-encoded-password>@<host>:3306/ai_agent_platform?charset=utf8mb4
+```
+
+知识库向量检索默认不连接外部向量库。需要开启时可按环境选择：
+
+```env
+# 默认：不连接真实向量库，仅保留接口边界
+AI_AGENT_PLATFORM_VECTOR_STORE_PROVIDER=null
+
+# 本地调试：进程内向量索引，重启后丢失
+AI_AGENT_PLATFORM_VECTOR_STORE_PROVIDER=memory
+
+# Qdrant：需要安装 .[qdrant] 可选依赖
+AI_AGENT_PLATFORM_VECTOR_STORE_PROVIDER=qdrant
+AI_AGENT_PLATFORM_QDRANT_URL=http://127.0.0.1:6333
+AI_AGENT_PLATFORM_QDRANT_COLLECTION=knowledge_segments
 ```
 
 如果密码包含 `@`，需要 URL encode 为 `%40`。

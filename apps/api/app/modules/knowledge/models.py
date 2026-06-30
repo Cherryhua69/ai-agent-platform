@@ -49,5 +49,46 @@ class KnowledgeDocumentModel(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     mime_type: Mapped[str] = mapped_column(String(120), nullable=False)
     size_kb: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    character_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="uploaded")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class KnowledgeSegmentModel(Base):
+    __tablename__ = "knowledge_segments"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    knowledge_base_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("knowledge_bases.id"), nullable=False, index=True
+    )
+    document_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("knowledge_documents.id"), nullable=False, index=True
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    character_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    token_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    index_node_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="available")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class KnowledgeProcessingJobModel(Base):
+    __tablename__ = "knowledge_processing_jobs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    knowledge_base_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("knowledge_bases.id"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="processing")
+    chunks_created: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

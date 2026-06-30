@@ -164,7 +164,7 @@ def test_loop_with_maximum_iterations_has_sufficient_recursion_budget() -> None:
 
 def test_executor_exposes_failed_node_trace() -> None:
     class FailingKnowledge:
-        def search(self, _query):
+        def search(self, _query, knowledge_base_id=None, top_k=None, similarity_threshold=None, return_citations=None):
             raise RuntimeError("知识库超时")
 
     class EmptyModels:
@@ -189,7 +189,7 @@ def test_executor_exposes_failed_node_trace() -> None:
 
 def test_parallel_failure_preserves_failed_node_location() -> None:
     class SelectiveKnowledge:
-        def search(self, query):
+        def search(self, query, knowledge_base_id=None, top_k=None, similarity_threshold=None, return_citations=None):
             if query == "fail":
                 raise RuntimeError("并行检索失败")
             return {"matches": []}
